@@ -1,0 +1,10 @@
+# Minimal Supabase CLI config for the two Edge Functions (plain JavaScript entrypoints).
+# Deploy:  supabase functions deploy send-recommendation-email && supabase functions deploy tmdb
+
+[functions.send-recommendation-email]
+entrypoint = "./functions/send-recommendation-email/index.js"
+verify_jwt = true   # the frontend sends the public anon key as the bearer token
+
+[functions.tmdb]
+entrypoint = "./functions/tmdb/index.js"
+verify_jwt = true

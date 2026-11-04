@@ -1,0 +1,117 @@
+// The full curated shelf: used offline, and as a fallback when the live APIs return too little.
+// Titles were written against an older 10-genre model; `toNewModel` maps them onto the current
+// 14 dimensions, and EXTRA adds hand-checked weights (historical, literary, philosophy, …).
+import { BOOKS } from './books.js'
+import { MOVIES } from './movies.js'
+import { REGIONAL_BOOKS, REGIONAL_MOVIES } from './regional.js'
+
+const EXTRA = {
+  // books
+  'book-thief': { historical: 3, literary: 2 },
+  'night-circus': { literary: 2 },
+  'gone-girl': { contemporary: 2, relationships: 1 },
+  'silent-patient': { contemporary: 1 },
+  alchemist: { philosophy: 3 },
+  'pride-prejudice': { historical: 2, relationships: 3, literary: 2 },
+  hobbit: {},
+  'project-hail-mary': { philosophy: 1 },
+  'evelyn-hugo': { historical: 1, relationships: 2 },
+  'and-then-there-were-none': { historical: 1 },
+  'midnight-library': { philosophy: 3, contemporary: 1 },
+  'six-of-crows': {},
+  'man-called-ove': { contemporary: 2, relationships: 2 },
+  dune: { philosophy: 2 },
+  'hitchhikers-guide': { philosophy: 1 },
+  'secret-history': { literary: 3 },
+  'eleanor-oliphant': { contemporary: 3, relationships: 1 },
+  'cerulean-sea': { relationships: 2 },
+  'good-girls-guide': { contemporary: 1 },
+  'klara-and-the-sun': { literary: 3, philosophy: 2 },
+  'little-women': { historical: 2, relationships: 3, literary: 2 },
+  'harry-potter-1': {},
+  wonder: { contemporary: 2, relationships: 1 },
+  'westing-game': {},
+  'wrinkle-in-time': { philosophy: 1 },
+  chemmeen: { literary: 2, historical: 1, relationships: 2 },
+  aadujeevitham: { contemporary: 2 },
+  randamoozham: { historical: 2, literary: 2 },
+  'khasakkinte-itihasam': { literary: 3, philosophy: 2 },
+  balyakalasakhi: { literary: 2, historical: 1, relationships: 2 },
+  'pathummayude-aadu': { relationships: 2, literary: 1 },
+  mayyazhippuzha: { historical: 3, literary: 2 },
+  aarachar: { literary: 3, contemporary: 1 },
+  'oru-desathinte-katha': { historical: 1, literary: 2, relationships: 1 },
+  indulekha: { historical: 3, literary: 1 },
+  godaan: { historical: 2, literary: 3, philosophy: 1 },
+  'gunahon-ka-devta': { literary: 2, relationships: 2 },
+  'raag-darbari': { philosophy: 1, literary: 2, contemporary: 1 },
+  chandrakanta: { historical: 1 },
+  tamas: { historical: 3, literary: 2 },
+  'maila-anchal': { historical: 1, literary: 3 },
+  'aapka-bunti': { relationships: 3, literary: 1 },
+  nirmala: { historical: 2, literary: 2, relationships: 2 },
+  // movies
+  inception: { philosophy: 2 },
+  prestige: { historical: 2 },
+  'knives-out': { contemporary: 1 },
+  'shutter-island': { historical: 1 },
+  'spirited-away': {},
+  'pride-prejudice-2005': { historical: 2, relationships: 3 },
+  'la-la-land': { contemporary: 2, relationships: 1 },
+  interstellar: { philosophy: 2, relationships: 1 },
+  'walter-mitty': { contemporary: 1 },
+  'everything-everywhere': { philosophy: 2, relationships: 2 },
+  parasite: { contemporary: 3, philosophy: 1 },
+  'grand-budapest': { historical: 2 },
+  up: { relationships: 2 },
+  'howls-moving-castle': {},
+  'the-martian': {},
+  'before-sunrise': { relationships: 3, philosophy: 2, literary: 1 },
+  'dead-poets-society': { historical: 1, literary: 2, philosophy: 1 },
+  prisoners: { contemporary: 1 },
+  raiders: { historical: 1 },
+  arrival: { philosophy: 3 },
+  'paddington-2': { relationships: 1 },
+  coco: { relationships: 2 },
+  zootopia: { contemporary: 1 },
+  'wall-e': { philosophy: 1 },
+  fellowship: {},
+  drishyam: { relationships: 2, contemporary: 2 },
+  'kumbalangi-nights': { relationships: 3, contemporary: 2 },
+  premam: { relationships: 1, contemporary: 1 },
+  'bangalore-days': { relationships: 2, contemporary: 3 },
+  'manjummel-boys': { relationships: 1, contemporary: 1 },
+  'minnal-murali': {},
+  'maheshinte-prathikaaram': { contemporary: 3, relationships: 1 },
+  manichitrathazhu: { historical: 1 },
+  'android-kunjappan': { relationships: 2, philosophy: 1 },
+  'anjaam-pathiraa': { contemporary: 1 },
+  'ustad-hotel': { relationships: 2, contemporary: 1 },
+  '3-idiots': { contemporary: 2, relationships: 1, philosophy: 1 },
+  znmd: { relationships: 2, contemporary: 2 },
+  queen: { contemporary: 2 },
+  andhadhun: { contemporary: 1 },
+  'taare-zameen-par': { relationships: 2, contemporary: 1 },
+  tumbbad: { historical: 2 },
+  kahaani: { contemporary: 1 },
+  barfi: { historical: 1, relationships: 2 },
+  'koi-mil-gaya': { relationships: 1 },
+  'dil-chahta-hai': { relationships: 3, contemporary: 2 },
+  96: { relationships: 3, literary: 1 },
+  'vikram-vedha': { philosophy: 1 },
+  ratsasan: {},
+  baahubali: { historical: 2 },
+  eega: {},
+  jersey: { relationships: 2, contemporary: 1 },
+}
+
+function toNewModel(item) {
+  const { comedy = 0, ...g } = item.genres
+  // Light, warm stories lean "everyday life" in the new model.
+  if (comedy) g.contemporary = Math.max(g.contemporary ?? 0, Math.round(comedy * 0.6))
+  for (const [k, v] of Object.entries(EXTRA[item.id] ?? {})) g[k] = Math.max(g[k] ?? 0, v)
+  return { ...item, genres: g }
+}
+
+export const CURATED_BOOKS = [...BOOKS, ...REGIONAL_BOOKS].map(toNewModel)
+export const CURATED_MOVIES = [...MOVIES, ...REGIONAL_MOVIES].map(toNewModel)
