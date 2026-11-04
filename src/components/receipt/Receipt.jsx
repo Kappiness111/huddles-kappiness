@@ -5,6 +5,7 @@ import Cup from '../../illustrations/Cup.jsx'
 import Motif from '../../illustrations/Motif.jsx'
 import { translate } from '../../i18n/index.jsx'
 import { LANGUAGE_NATIVE } from '../../i18n/languages.js'
+import { LOGO_SRC } from '../../lib/media.js'
 
 const DATE_LOCALE = { en: 'en-GB', ml: 'ml-IN', hi: 'hi-IN' }
 
@@ -58,7 +59,7 @@ export default function Receipt({ data, variant = 'thermal', notchBg }) {
     <article className={`rcpt ${a5 ? 'is-a5' : ''}`} style={notchBg ? { '--notch-bg': notchBg } : undefined} aria-label={t('receipt.title')}>
       <div className="rcpt-inner">
         <header style={{ textAlign: 'center' }}>
-          <img src="/brand/kappiness-logo-transparent.png" alt="Kappiness" loading="eager" style={{ height: '3.6em', width: 'auto', margin: '0 auto', objectFit: 'contain' }} />
+          <img src={LOGO_SRC} alt="Kappiness" loading="eager" style={{ height: '3.6em', width: 'auto', margin: '0 auto', objectFit: 'contain' }} />
           <p className="rcpt-label" style={{ marginTop: '1em' }}>{t('receipt.original')}</p>
           <h2 className="rcpt-display" style={{ fontSize: a5 ? '2.2em' : '1.95em', marginTop: '0.2em', fontStyle: 'italic' }}>
             {t('receipt.title')}

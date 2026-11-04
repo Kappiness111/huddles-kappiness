@@ -38,7 +38,10 @@ function safeUrl(url, hosts) {
 }
 function imageUrl(cover) {
   if (!cover) return null
-  if (cover.startsWith('/media/') && env('SITE_URL')) return `${env('SITE_URL').replace(/\/$/, '')}${cover}`
+  // Bundled covers arrive as site-relative paths, possibly with the deploy base
+  // (e.g. "/huddles-kappiness/media/books/x.jpg"); SITE_URL already includes that base.
+  const i = cover.indexOf('/media/')
+  if (!/^https?:/i.test(cover) && i >= 0 && env('SITE_URL')) return `${env('SITE_URL').replace(/\/$/, '')}${cover.slice(i)}`
   return safeUrl(cover.replace(/^http:/, 'https:'), IMAGE_HOSTS)
 }
 
