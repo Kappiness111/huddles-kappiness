@@ -1,9 +1,11 @@
+
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 // `host: true` lets a tablet on the same wifi open the laptop's dev/preview server.
 export default defineConfig({
+  base: '/huddles-kappiness/',
   plugins: [react(), tailwindcss()],
   server: { host: true },
   preview: { host: true },
