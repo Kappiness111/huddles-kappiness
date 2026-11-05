@@ -23,13 +23,14 @@ export const config = {
   tmdbDevToken: env.VITE_TMDB_READ_TOKEN || '',
 
   // Email goes through the `send-recommendation-email` Edge Function (Resend, server-side).
-  emailEndpoint:
-    trim(env.VITE_EMAIL_ENDPOINT) || (env.VITE_EMAIL_ENABLED === 'true' && functionsBase ? `${functionsBase}/send-recommendation-email` : ''),
+  // Set VITE_EMAIL_ENABLED=true once the function is deployed and its secrets are set.
+  emailEnabled: env.VITE_EMAIL_ENABLED === 'true',
 }
 
 export const isTmdbConfigured = Boolean(config.tmdbProxyUrl || config.tmdbDevToken)
-export const isEmailConfigured = Boolean(config.emailEndpoint)
 export const isSupabaseConfigured = Boolean(config.supabaseUrl && config.supabaseAnonKey)
+// The email function only sends for a saved submission, so it needs the database too.
+export const isEmailConfigured = config.emailEnabled && isSupabaseConfigured
 
 /** Headers for calling our own Supabase Edge Functions (the anon key is public). */
 export function functionHeaders(url) {

@@ -1,72 +1,75 @@
-// Email delivery. The browser NEVER talks to Resend directly — it POSTs to the
-// `send-recommendation-email` Edge Function (supabase/functions/), which verifies the request
-// against the stored submission, renders the email and sends it with Resend.
+// Email delivery of the Story Receipt. The browser NEVER talks to Resend directly. It asks the
+// `send-recommendation-email` Edge Function (supabase/functions/) to send the receipt for a
+// submission that has ALREADY been saved. The function renders the email from that saved row,
+// so a retry always sends exactly the receipt the visitor saw and never re-runs recommendations.
 //
-// All email wording is translated here from the locale files (`email.*`), so the email arrives in
-// the attendee's chosen language without the backend needing its own translations.
+// The receipt wording is translated here from the locale files and saved with the submission
+// (`email_copy`), so the email arrives in the visitor's chosen language without the backend
+// needing its own translations.
 
-import { config, functionHeaders, isEmailConfigured } from './config.js'
+import { isEmailConfigured } from './config.js'
+import { getSupabase } from './supabaseClient.js'
 import { translate } from '../i18n/index.jsx'
-import { LANGUAGE_NATIVE } from '../i18n/languages.js'
+import { formatReceiptDate } from '../lib/receiptDate.js'
 
-const pick = (x) =>
-  x && {
-    title: x.title,
-    originalTitle: x.originalTitle ?? x.nativeTitle ?? null,
-    author: x.author ?? null,
-    year: x.year ?? null,
-    language: x.language,
-    languageName: LANGUAGE_NATIVE[x.language] ?? x.language,
-    description: x.description ?? '',
-    // The Edge Function whitelists image hosts, and maps bundled /media/... covers onto SITE_URL.
-    cover: x.cover ?? null,
-    link: x.link ?? null,
-    source: x.source,
-  }
+export const EMAIL_FUNCTION = 'send-recommendation-email'
 
-export function buildEmailPayload({ attendee, uiLang, receiptNo, sessionId, result, picks }) {
+/** Pure: the receipt + email wording in the visitor's language (stored as `email_copy`). */
+export function buildEmailCopy({ attendee, uiLang, completedAt }) {
   const t = (k, v) => translate(uiLang, k, v)
   const first = attendee.name.split(' ')[0]
-  const p = result.personality
   return {
-    submissionId: sessionId,
-    receiptNo,
-    to: attendee.email,
-    consentEmail: attendee.consentEmail,
-    language: uiLang,
-    personality: { id: p.id, ...translate(uiLang, `personalities.${p.id}`) },
-    book: pick(picks.book),
-    movie: pick(picks.movie),
-    copy: {
-      subject: t('email.subject', { name: first }),
-      preheader: t('email.preheader'),
-      greeting: t('email.greeting', { name: first }),
-      intro: t('email.intro'),
-      identity: t('email.identity'),
-      read: t('email.read'),
-      watch: t('email.watch'),
-      by: t('email.by', { author: '{author}' }),
-      inLang: t('email.inLang', { lang: '{lang}' }),
-      previewBook: t('email.previewBook'),
-      filmDetails: t('email.filmDetails'),
-      closing: t('email.closing'),
-      signoff: t('email.signoff'),
-      footer: t('email.footer'),
-    },
+    subject: t('email.subject', { name: first }),
+    preheader: t('email.preheader'),
+    greeting: t('email.greeting', { name: first }),
+    intro: t('email.intro'),
+    // The same strings the on-screen receipt uses (Receipt.jsx).
+    original: t('receipt.original'),
+    title: t('receipt.title'),
+    no: t('receipt.no'),
+    nameLabel: t('receipt.name'),
+    dateLabel: t('receipt.date'),
+    date: formatReceiptDate(completedAt, uiLang),
+    personality: t('receipt.personality'),
+    read: t('receipt.read'),
+    watch: t('receipt.watch'),
+    inLang: t('receipt.inLang', { lang: '{lang}' }),
+    message: t('receipt.message', { name: first }),
+    tagline: t('receipt.footer'),
+    thanks: t('receipt.thanks'),
+    keep: t('receipt.keep'),
+    previewBook: t('email.previewBook'),
+    filmDetails: t('email.filmDetails'),
+    signoff: t('email.signoff'),
+    legal: t('email.footer'),
   }
 }
 
-/** @returns {Promise<{status: 'sent'|'not-configured'|'error', message?: string}>} */
-export async function sendRecommendationEmail(payload) {
+/**
+ * Ask the Edge Function to email the saved receipt.
+ * @returns {Promise<{status: 'sent'|'not-configured'|'error'|'blocked', message?: string}>}
+ *   'error' can be retried; 'blocked' cannot (limit reached, expired, mismatch...).
+ */
+export async function sendReceiptEmail({ submissionId, receiptNo, email, consentEmail }) {
   if (!isEmailConfigured) return { status: 'not-configured' }
   try {
-    const res = await fetch(config.emailEndpoint, {
-      method: 'POST',
-      headers: functionHeaders(config.emailEndpoint),
-      body: JSON.stringify(payload),
+    const supabase = await getSupabase()
+    const { data, error } = await supabase.functions.invoke(EMAIL_FUNCTION, {
+      body: { submissionId, receiptNo, email, consentEmail },
+      timeout: 20000,
     })
-    if (!res.ok) return { status: 'error', message: `${res.status} ${await res.text().catch(() => '')}` }
-    return { status: 'sent' }
+    if (!error) return data?.ok ? { status: 'sent' } : { status: 'error', message: data?.error ?? 'unexpected response' }
+
+    // Non-2xx: read the function's { error, retryable } body if there is one.
+    let body = null
+    try {
+      body = await error.context?.json?.()
+    } catch {
+      /* not JSON */
+    }
+    const message = body?.error ?? error.message
+    if (body?.error === 'not_configured') return { status: 'not-configured', message }
+    return { status: body?.retryable === false ? 'blocked' : 'error', message }
   } catch (e) {
     return { status: 'error', message: e.message }
   }

@@ -1,10 +1,15 @@
-# Minimal Supabase CLI config for the two Edge Functions (plain JavaScript entrypoints).
+# Supabase CLI config. Migrations live in ./migrations (applied with `supabase db push`).
 # Deploy:  supabase functions deploy send-recommendation-email && supabase functions deploy tmdb
+project_id = "huddles-kappiness"
+
+# verify_jwt = false: the website's key is public either way (legacy anon JWT or the newer
+# sb_publishable_ key, which is not a JWT and would be rejected by the JWT gate). So the gate adds
+# no protection. The email function instead verifies every request against the stored submission.
 
 [functions.send-recommendation-email]
 entrypoint = "./functions/send-recommendation-email/index.js"
-verify_jwt = true   # the frontend sends the public anon key as the bearer token
+verify_jwt = false
 
 [functions.tmdb]
 entrypoint = "./functions/tmdb/index.js"
-verify_jwt = true
+verify_jwt = false
