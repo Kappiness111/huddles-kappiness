@@ -1,7 +1,7 @@
 // Scoring-based personality + ranking engine (pure functions, no I/O).
 //
 // 1. Every quiz answer adds weights to 10 genre dimensions and 6 trait dimensions.
-// 2. Each dimension is normalised by the most it could score across the quiz.
+// 2. Each dimension is normalised by the most it could score across the visitor's question set.
 // 3. Personality = best weighted affinity match.
 // 4. Items (API or curated) are ranked by cosine similarity between the attendee's genre
 //    vector and the item's genre vector, plus quality signals supplied by the caller.
@@ -9,25 +9,30 @@
 //    quote the attendee's real choices.
 
 import { GENRES, TRAITS } from '../data/genres.js'
-import { QUIZ } from '../data/quiz.js'
+import { QUESTION_SETS } from '../data/quiz.js'
 import { PERSONALITIES } from '../data/personalities.js'
 import { hashString } from './ids.js'
 
 const zero = (keys) => Object.fromEntries(keys.map((k) => [k, 0]))
 
-function maxPossible(keys, field) {
+function maxPossible(questions, keys, field) {
   const max = zero(keys)
-  for (const q of QUIZ) for (const k of keys) max[k] += Math.max(q.a[field][k] ?? 0, q.b[field][k] ?? 0)
+  for (const q of questions) for (const k of keys) max[k] += Math.max(q.a[field][k] ?? 0, q.b[field][k] ?? 0)
   return max
 }
-const MAX_GENRES = maxPossible(GENRES, 'genres')
-const MAX_TRAITS = maxPossible(TRAITS, 'traits')
+// Normalisation ceilings per question set (each visitor is scored only on their own set).
+const MAX = new Map()
+function maxFor(questions) {
+  if (!MAX.has(questions)) MAX.set(questions, { genres: maxPossible(questions, GENRES, 'genres'), traits: maxPossible(questions, TRAITS, 'traits') })
+  return MAX.get(questions)
+}
 
 /** Normalised (0–1) genre + trait scores, plus the answers behind each genre. */
-export function buildProfile(answers) {
+export function buildProfile(answers, questions = QUESTION_SETS.A) {
+  const { genres: MAX_GENRES, traits: MAX_TRAITS } = maxFor(questions)
   const raw = { genres: zero(GENRES), traits: zero(TRAITS) }
   const drivers = Object.fromEntries(GENRES.map((g) => [g, []]))
-  for (const q of QUIZ) {
+  for (const q of questions) {
     const side = answers[q.id]
     if (!side) continue
     const opt = q[side]
@@ -118,7 +123,7 @@ export function answersBehind(profile, genre, n = 2) {
   return (profile.drivers[genre] ?? []).slice(0, n)
 }
 
-export function computeResult({ answers }) {
-  const profile = buildProfile(answers)
+export function computeResult({ answers, quizSet = 'A' }) {
+  const profile = buildProfile(answers, QUESTION_SETS[quizSet] ?? QUESTION_SETS.A)
   return { profile, personality: pickPersonality(profile), interests: topGenres(profile, 3) }
 }
