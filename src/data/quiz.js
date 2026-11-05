@@ -1,58 +1,75 @@
 // This or That — the ONLY preference quiz. Text lives in the locale files under `quiz.<id>`.
 // Each option adds weight to genre dimensions and storytelling traits.
 // `motif` picks the abstract editorial line-art drawn behind the option (see Motif.jsx).
+//
+// Several predefined QUESTION SETS exist so visitors at the stall don't all see the same
+// questions. Every set is a parallel form: question k of each set asks a different scenario but
+// measures the same contrast with the SAME weights as slot k below, so any set produces a
+// profile the recommendation engine scores identically.
 
-export const QUIZ = [
+const SLOTS = [
   {
-    id: 'q1', // What makes a story memorable?
+    // 1. Emotional depth vs a new perspective
     a: { motif: 'ripple', genres: { drama: 3, relationships: 2, romance: 1 }, traits: { heart: 2 } },
     b: { motif: 'prism', genres: { psychological: 2, philosophy: 2, scifi: 1 }, traits: { mind: 2 } },
   },
   {
-    id: 'q2', // What would you rather read?
+    // 2. Beautiful prose vs challenging ideas
     a: { motif: 'page', genres: { literary: 3, romance: 1, historical: 1 }, traits: { calm: 1, dreamy: 1 } },
     b: { motif: 'lattice', genres: { philosophy: 3, scifi: 1, psychological: 1 }, traits: { mind: 2 } },
   },
   {
-    id: 'q3', // Which subject interests you more?
+    // 3. Relationships vs psychology
     a: { motif: 'orbit', genres: { relationships: 3, romance: 2, drama: 1 }, traits: { heart: 2 } },
     b: { motif: 'maze', genres: { psychological: 3, mystery: 1, thriller: 1 }, traits: { mind: 1, grounded: 1 } },
   },
   {
-    id: 'q4', // Your ideal movie?
+    // 4. Character drama vs psychological thriller
     a: { motif: 'portrait', genres: { drama: 3, literary: 1, contemporary: 1 }, traits: { heart: 1, grounded: 1 } },
     b: { motif: 'spiral', genres: { thriller: 3, psychological: 2, mystery: 2 }, traits: { bold: 1, mind: 1 } },
     interlude: 'i1',
   },
   {
-    id: 'q5', // Which world attracts you?
+    // 5. The past vs the future
     a: { motif: 'arch', genres: { historical: 3, literary: 1, romance: 1 }, traits: { calm: 1, grounded: 1 } },
     b: { motif: 'horizon', genres: { scifi: 3, adventure: 1, philosophy: 1 }, traits: { dreamy: 1, bold: 1 } },
   },
   {
-    id: 'q6', // What do you value in storytelling?
+    // 6. Realism vs imagination
     a: { motif: 'window', genres: { contemporary: 3, drama: 1, relationships: 1 }, traits: { grounded: 2 } },
     b: { motif: 'moon', genres: { fantasy: 3, scifi: 1, adventure: 1 }, traits: { dreamy: 2 } },
   },
   {
-    id: 'q7', // Choose your narrative style.
+    // 7. Slow and layered vs fast and unpredictable
     a: { motif: 'layers', genres: { literary: 2, historical: 1, drama: 1, selfDiscovery: 1 }, traits: { calm: 2 } },
     b: { motif: 'zigzag', genres: { thriller: 2, adventure: 2, mystery: 1 }, traits: { bold: 2 } },
     interlude: 'i2',
   },
   {
-    id: 'q8', // Which would you explore?
+    // 8. Personal transformation vs society
     a: { motif: 'seed', genres: { selfDiscovery: 3, drama: 1 }, traits: { heart: 1, calm: 1 } },
     b: { motif: 'crowd', genres: { philosophy: 2, contemporary: 2, historical: 1 }, traits: { mind: 1, grounded: 1 } },
   },
   {
-    id: 'q9', // How should a story end?
+    // 9. Hopeful ending vs open ending
     a: { motif: 'sunrise', genres: { selfDiscovery: 2, romance: 1, contemporary: 1 }, traits: { heart: 1, dreamy: 1 } },
     b: { motif: 'door', genres: { literary: 2, psychological: 1, mystery: 1, philosophy: 1 }, traits: { mind: 1, calm: 1 } },
   },
   {
-    id: 'q10', // Which would you rather follow?
+    // 10. A love story vs a journey into the unknown
     a: { motif: 'threads', genres: { romance: 3, relationships: 2 }, traits: { heart: 2 } },
     b: { motif: 'compass', genres: { adventure: 3, fantasy: 2, mystery: 1 }, traits: { bold: 2 } },
   },
 ]
+
+// Set id → question-id prefix. Set A keeps the original ids (q1…q10).
+const PREFIX = { A: 'q', B: 'b', C: 'c', D: 'd' }
+
+export const SET_IDS = Object.keys(PREFIX)
+
+export const QUESTION_SETS = Object.fromEntries(
+  SET_IDS.map((set) => [set, SLOTS.map((slot, i) => ({ id: `${PREFIX[set]}${i + 1}`, ...slot }))]),
+)
+
+/** Every question of every set (lookup by id, e.g. when recording answers). */
+export const QUIZ = SET_IDS.flatMap((set) => QUESTION_SETS[set])

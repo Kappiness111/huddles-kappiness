@@ -5,8 +5,9 @@ import { buildSubmission, saveSubmission } from '../services/submissions.js'
 import { findBooks } from '../services/books.js'
 import { findMovies, ensureOverview } from '../services/movies.js'
 import { buildEmailPayload, sendRecommendationEmail } from '../services/email.js'
-import { pickMindLab } from '../data/mindlab.js'
+import { currentMindLabPicks, nextMindLabPicks } from '../lib/mindLabSession.js'
 import { DEFAULT_UI_LANGUAGE } from '../i18n/languages.js'
+import { currentQuizSet, nextQuizSet } from '../lib/questionSet.js'
 
 const EMPTY_REC = { status: 'idle', items: [], index: 0, requested: null, actual: null, offline: false, wrapped: false }
 const FINDERS = { book: findBooks, movie: findMovies }
@@ -25,8 +26,10 @@ function preloadCover(src, timeout = 2500) {
 }
 
 // Every new attendee gets a brand-new state object. Nothing is carried over — including the
-// interface language, which goes back to the default for the next person.
-function freshState() {
+// interface language, which goes back to the default for the next person. `quizSet` is the
+// predefined question set this visitor answers (see lib/questionSet.js). `mindLabPicks` are this
+// visitor's three Mind Lab question ids, kept across a page refresh (see lib/mindLabSession.js).
+function freshState(quizSet, mindLabPicks) {
   const sessionId = newId()
   return {
     sessionId,
@@ -35,7 +38,8 @@ function freshState() {
     step: 'welcome',
     attendee: { name: '', email: '', phone: '', consentData: false, consentEmail: false },
     // The Mind Lab is kept apart from preference scoring: it never feeds recommendations.
-    mindLab: { picks: pickMindLab(sessionId), responses: {}, completed: false },
+    mindLab: { picks: mindLabPicks, responses: {}, completed: false },
+    quizSet,
     quizAnswers: {},
     result: null,
     prefs: { book: null, movie: null },
@@ -61,7 +65,7 @@ function reducer(state, a) {
     case 'QUIZ_ANSWER':
       return { ...state, quizAnswers: { ...state.quizAnswers, [a.id]: a.side } }
     case 'FINISH_QUIZ':
-      return { ...state, result: computeResult({ answers: state.quizAnswers }), step: 'reveal' }
+      return { ...state, result: computeResult({ answers: state.quizAnswers, quizSet: state.quizSet }), step: 'reveal' }
     case 'SET_PREF':
       return { ...state, prefs: { ...state.prefs, [a.kind]: a.lang } }
     case 'REC':
@@ -79,7 +83,7 @@ function reducer(state, a) {
     case 'EMAIL_STATUS':
       return { ...state, emailStatus: a.status }
     case 'RESET':
-      return freshState()
+      return freshState(a.quizSet, a.mindLabPicks)
     default:
       return state
   }
@@ -92,7 +96,7 @@ export const currentPick = (rec) => rec.items[rec.index] ?? null
 const ExperienceContext = createContext(null)
 
 export function ExperienceProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, undefined, freshState)
+  const [state, dispatch] = useReducer(reducer, undefined, () => freshState(currentQuizSet(), currentMindLabPicks()))
 
   // Async results must never land in the next attendee's session.
   const stateRef = useRef(state)
@@ -148,7 +152,8 @@ export function ExperienceProvider({ children }) {
       loadRecs: (prefs) => Promise.all([loadRec('book', prefs.book), loadRec('movie', prefs.movie)]),
       loadRec,
       nextRec: (kind) => dispatch({ type: 'NEXT_REC', kind }),
-      reset: () => dispatch({ type: 'RESET' }),
+      // A new visitor gets a new question set, different from the previous visitor's.
+      reset: () => dispatch({ type: 'RESET', quizSet: nextQuizSet(stateRef.current.quizSet), mindLabPicks: nextMindLabPicks(stateRef.current.mindLab.picks) }),
       sendEmail: async () => {
         const s = stateRef.current
         const sid = s.sessionId

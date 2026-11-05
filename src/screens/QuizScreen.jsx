@@ -6,11 +6,10 @@ import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import TopBar from '../components/layout/TopBar.jsx'
 import Button from '../components/ui/Button.jsx'
 import Motif from '../illustrations/Motif.jsx'
-import { QUIZ } from '../data/quiz.js'
+import { QUESTION_SETS } from '../data/quiz.js'
 import { useExperience } from '../state/ExperienceContext.jsx'
 import { useI18n } from '../i18n/index.jsx'
 
-const TOTAL = QUIZ.length
 const ADVANCE_MS = 650
 const INTERLUDE_MS = 1900
 
@@ -27,6 +26,9 @@ export default function QuizScreen() {
   const { state, answerQuiz, finishQuiz, go } = useExperience()
   const { t } = useI18n()
   const answers = state.quizAnswers
+  // This visitor's assigned question set — fixed for the whole session.
+  const QUIZ = QUESTION_SETS[state.quizSet] ?? QUESTION_SETS.A
+  const TOTAL = QUIZ.length
   const [index, setIndex] = useState(() => {
     const i = QUIZ.findIndex((x) => !answers[x.id])
     return i === -1 ? TOTAL - 1 : i
@@ -56,7 +58,7 @@ export default function QuizScreen() {
         }, INTERLUDE_MS)
       } else move()
     },
-    [finishQuiz],
+    [finishQuiz, QUIZ, TOTAL],
   )
 
   const choose = (side) => {
