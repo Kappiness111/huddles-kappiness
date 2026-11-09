@@ -71,31 +71,44 @@ affinity match. Every one of the 1,024 possible answer combinations gives one of
 - **Ranking:** genre similarity, a personality bonus, rating and popularity, and a stable per-session tie-break.
   Adult and non-fiction results are filtered out.
 
-## Backend (Supabase)
+## Backend (Supabase + Resend)
 
 Everything secret lives in Supabase. The browser only ever holds public values.
 
-1. **Database:** run `supabase/schema.sql`. It creates `attendee_submissions` (fields: full_name, email, phone,
-   consent, website/book/movie language, mind_lab_responses, mind_lab_completed, quiz_answers,
-   personality_type, preference_scores, recommended_book/movie, created_at). Row-level security lets
-   the stall **insert only**, so no one can read records back from the site. There is a 90-day retention function, with a `pg_cron` line to schedule it.
+**Flow:** the receipt appears → the record is saved (`attendee_submissions`) → if the visitor consented,
+the Story Receipt is emailed automatically → the receipt screen shows *sending / sent / failed + retry*.
+The record is built once, so save retries and email retries always use exactly the receipt on screen.
+The receipt stays on screen (and printable) whatever happens to the email.
+
+1. **Database:** `supabase/migrations/` (apply with `supabase db push`). `attendee_submissions` holds the visitor,
+   consent, quiz answers, story identity, preference scores, the recommended book and film (title, author, language,
+   genre, cover/poster, link), the receipt wording in the visitor's language, and the email delivery state.
+   - Row-level security: the public key may **insert only**. It can never read, update or delete, so no visitor can
+     see anyone's record. A trigger sets `created_at` and the email state server-side, whatever the browser sends.
+   - `claim_submission_email()` / `finish_submission_email()` (service role only) verify and lock each send:
+     matching id + receipt number + email, consent, under 24h old, at most 3 attempts per receipt, at most 5 emails per
+     address per day, and never a second email once one has been sent.
+   - There is a 90-day retention function, with a `pg_cron` line to schedule it.
 2. **Edge Functions** (`supabase/functions/`, JavaScript, entrypoints in `supabase/config.toml`):
-   - `send-recommendation-email`: sends through **Resend**. It only sends if a matching saved row exists
-     (same id, receipt number and email), email consent was given, the row is less than 24 hours old,
-     and fewer than 3 emails have been sent. All text is HTML-escaped, and image and link hosts are whitelisted.
-     The email wording arrives already translated from the app's locale files.
+   - `send-recommendation-email`: takes `{ submissionId, receiptNo, email }` only, renders the email **from the saved
+     row** (`receipt-email.js`, an email-safe copy of the on-screen receipt) and sends it with **Resend**.
+     All text is HTML-escaped, and image and link hosts are whitelisted.
    - `tmdb`: a read-only proxy for 4 TMDB endpoints. It adds the token server-side.
 
 ```bash
-supabase secrets set RESEND_API_KEY=... RESEND_FROM="Kappiness <stories@your-domain>" \
-  TMDB_READ_TOKEN=... SITE_URL=https://your-site ALLOWED_ORIGIN=https://your-site
+cp supabase/functions/.env.example supabase/functions/.env   # fill in; git-ignored
+supabase secrets set --env-file supabase/functions/.env
 supabase functions deploy send-recommendation-email
 supabase functions deploy tmdb
 ```
 
-3. **Frontend `.env.local`** (see `.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
-   `VITE_EMAIL_ENABLED=true`, `VITE_TMDB_ENABLED=true`, and optionally `VITE_GOOGLE_BOOKS_API_KEY`
+3. **Frontend `.env.local`** (see `.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (the anon *or*
+   publishable key), `VITE_EMAIL_ENABLED=true`, `VITE_TMDB_ENABLED=true`, and optionally `VITE_GOOGLE_BOOKS_API_KEY`
    (a public key, restricted by HTTP referrer).
+
+**Tests (no Supabase project needed):** `npm test` runs `test:sql` (the migration on PGlite: RLS, trigger, claim
+logic) and `test:backend` (the real frontend services + supabase-js against a local fake Supabase, routed into the
+real Edge Function handler, and it writes email previews in en / ml / hi).
 
 With nothing configured the app still works end to end, using live Google Books / Open Library plus the
 shelf. It says honestly that email isn't connected, and it never claims data was saved.

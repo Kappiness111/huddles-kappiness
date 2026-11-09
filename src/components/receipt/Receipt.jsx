@@ -6,8 +6,7 @@ import Motif from '../../illustrations/Motif.jsx'
 import { translate } from '../../i18n/index.jsx'
 import { LANGUAGE_NATIVE } from '../../i18n/languages.js'
 import { LOGO_SRC } from '../../lib/media.js'
-
-const DATE_LOCALE = { en: 'en-GB', ml: 'ml-IN', hi: 'hi-IN' }
+import { formatReceiptDate } from '../../lib/receiptDate.js'
 
 function Row({ k, v }) {
   return (
@@ -52,7 +51,7 @@ export default function Receipt({ data, variant = 'thermal', notchBg }) {
   const { book, movie } = data.picks
   const a5 = variant === 'a5'
   const first = attendee.name.split(' ')[0]
-  const date = new Date(completedAt ?? Date.now()).toLocaleDateString(DATE_LOCALE[uiLang] ?? 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  const date = formatReceiptDate(completedAt, uiLang)
   const qrValue = `KAPPINESS|${receiptNo}|${p.id}|${book?.id ?? ''}|${movie?.id ?? ''}`
 
   return (

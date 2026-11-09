@@ -9,7 +9,7 @@ const ALLOWED = /^\/(discover\/movie|search\/movie|genre\/movie\/list|movie\/\d+
 const env = (k) => Deno.env.get(k) ?? ''
 const cors = () => ({
   'Access-Control-Allow-Origin': env('ALLOWED_ORIGIN') || '*',
-  'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
 })
 

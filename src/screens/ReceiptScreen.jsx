@@ -106,7 +106,7 @@ export default function ReceiptScreen() {
 
 function EmailButton({ state, sendEmail, t }) {
   const s = state.emailStatus
-  const disabled = s === 'sending' || s === 'sent' || !state.attendee.consentEmail
+  const disabled = s === 'sending' || s === 'sent' || s === 'blocked' || !state.attendee.consentEmail
   return (
     <Button variant="outline" onClick={sendEmail} disabled={disabled}>
       {s === 'sent' ? <Check className="h-4 w-4" aria-hidden="true" /> : <Mail className="h-4 w-4" aria-hidden="true" />}
@@ -143,6 +143,13 @@ function EmailStatus({ state, setAttendee, sendEmail, t }) {
           <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> {t('receipt.emailRetry')}
         </button>
       </div>
+    )
+  // The server refused for good (send limit reached, request expired…): retrying won't help.
+  if (s === 'blocked')
+    return (
+      <p className="mt-4 text-sm font-semibold text-terracotta" role="status">
+        {t('receipt.emailFailed')}
+      </p>
     )
   if (s === 'not-configured')
     return (
