@@ -23,7 +23,7 @@ npm run fetch-media        # download covers/posters for any new curated title
 | 1 | Welcome | Editorial landscape, "There is a story waiting to find you.", language selector, "Let's begin", time estimate. |
 | 2 | Language | English, മലയാളം and हिंदी on the welcome screen. The language can be changed from the top bar at any point without losing progress. |
 | 3 | Attendee | Name and email are required, phone is optional. Consent is required for data collection and for email delivery. Includes a privacy notice. |
-| 4 | The Mind Lab | Exactly 3 challenges: *A Different Perspective*, *Pattern Recognition* and *The Decision Room*. Each has feedback and an explanation. No scores, no labels, and it does not feed the recommendations. |
+| 4 | The Mind Lab | Exactly 3 challenges: *A Different Perspective*, *Pattern Recognition* and *The Decision Room*, one question from each section per visitor. Each has feedback and an explanation. No scores, no labels, and it does not feed the recommendations. |
 | 5 | This or That | 10 questions, shown as an editorial split with abstract line-art. Back and Next buttons, a progress bar, and two short interlude screens. |
 | 6 | Reveal | One of 7 story identities. The description is extended from the attendee's actual top genres. Marked as a creative identity, not an assessment. |
 | 7 | Book | Language preference is independent of the UI language. Includes Find another, a language switch, and a "why it matches" line that quotes the attendee's own answers. |
@@ -31,8 +31,21 @@ npm run fetch-media        # download covers/posters for any new curated title
 | 9 | Receipt | 80mm thermal, A5, and PDF (via the print dialog). Send to email, with sending, sent, failed + retry, and not-configured states. |
 | 10 | Thanks | "Thank you for exploring with Kappiness." → Start a new experience (auto-resets after 45 seconds). |
 
-The Mind Lab draws one item per session from small banks: 2 perspective scenarios, 8 number
-puzzles and 2 decision scenarios (`src/data/mindlab.js`). Each puzzle's answer is computed from its rule, not typed by hand.
+The Mind Lab shows each visitor exactly **one question from each section**, drawn at random from its pool
+(`src/data/mindlab.js`):
+
+| Section | Question pool | Shown per visitor |
+|---|---|---|
+| A Different Perspective | 12 scenarios | 1 |
+| Pattern Recognition | 18 number puzzles | 1 |
+| The Decision Room | 12 scenarios | 1 |
+
+Each visitor's three questions are picked independently, so people playing at the same time usually see
+different combinations (2,592 are possible), and the next visitor on the same device never gets any of the
+previous visitor's three. The picks stay the same for the whole visit, even if the page is refreshed and the
+visitor registers again (`src/lib/mindLabSession.js` keeps only the three question ids in the tab's
+sessionStorage). Starting a new experience picks new ones. Each puzzle's answer is computed from its rule,
+not typed by hand.
 
 ## Design system
 
