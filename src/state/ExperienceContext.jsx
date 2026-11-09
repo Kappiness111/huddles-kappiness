@@ -9,8 +9,6 @@ import { isEmailConfigured } from '../services/config.js'
 import { currentMindLabPicks, nextMindLabPicks } from '../lib/mindLabSession.js'
 import { DEFAULT_UI_LANGUAGE } from '../i18n/languages.js'
 import { currentQuizSet, nextQuizSet } from '../lib/questionSet.js'
-import { DEFAULT_UI_LANGUAGE } from '../i18n/languages.js'
-import { currentQuizSet, nextQuizSet } from '../lib/questionSet.js'
 
 const EMPTY_REC = { status: 'idle', items: [], index: 0, requested: null, actual: null, offline: false, wrapped: false }
 const FINDERS = { book: findBooks, movie: findMovies }
