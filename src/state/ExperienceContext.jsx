@@ -94,6 +94,71 @@ function reducer(state, a) {
 
 /** The item currently shown for a recommendation kind. */
 // eslint-disable-next-line react-refresh/only-export-components
+export const currentPick = (rec) => rec.items[rec.index] ?? null
+
+const ExperienceContext = createContext(null)
+
+export function ExperienceProvider({ children }) {
+  const [state, dispatch] = useReducer(reducer, undefined, () => freshState(currentQuizSet(), currentMindLabPicks()))
+
+  // Async results must never land in the next attendee's session.
+  const stateRef = useRef(state)
+  useEffect(() => {
+    stateRef.current = state
+  })
+  const guarded = useCallback((sid, action) => {
+    if (stateRef.current.sessionId === sid) dispatch(action)
+  }, [])
+
+  /** (Re)load one recommendation kind in a given language. Quiz answers are never touched. */
+  const loadRec = useCallback(
+    async (kind, lang) => {
+      const s = stateRef.current
+      const sid = s.sessionId
+      dispatch({ type: 'SET_PREF', kind, lang })
+      dispatch({ type: 'REC', kind, patch: { ...EMPTY_REC, status: 'loading' } })
+      try {
+        const r = await FINDERS[kind]({ profile: s.result.profile, personality: s.result.personality, seed: sid, uiLang: s.uiLang, lang })
+        await preloadCover(r.items[0]?.cover)
+        if (r.items[1]?.cover) new Image().src = r.items[1].cover
+        guarded(sid, { type: 'REC', kind, patch: { status: r.items.length ? 'ready' : 'error', ...r, index: 0 } })
+      } catch (e) {
+        console.error(`[${kind}]`, e)
+        guarded(sid, { type: 'REC', kind, patch: { status: 'error' } })
+      }
+    },
+    [guarded],
+  )
+
+  // Fill in an English overview if TMDB has none in the attendee's language.
+  const movieRec = state.recs.movie
+  useEffect(() => {
+    const m = currentPick(movieRec)
+    if (!m || m.source !== 'tmdb' || m.description) return
+    const sid = stateRef.current.sessionId
+    ensureOverview(m).then((filled) => {
+      if (filled === m) return
+      const items = movieRec.items.map((x) => (x.id === m.id ? filled : x))
+      guarded(sid, { type: 'REC', kind: 'movie', patch: { items } })
+    })
+  }, [movieRec, guarded])
+
+  // ── Saving + emailing the receipt ────────────────────────────────────────────────
+  // The record is built ONCE when the receipt appears (see the effect below) and kept here, so
+  // every save retry and email retry uses exactly the receipt the visitor saw.
+  const recordRef = useRef(null) // { sid, record }
+  const savingRef = useRef(null) // { sid, promise } while a save is in flight
+  const savedRef = useRef(null) // sid whose record is confirmed saved
+  const sendingRef = useRef(null) // sid whose email request is in flight
+
+  /** Save this session's record (once). Concurrent callers share one attempt. */
+  const persist = useCallback(() => {
+    const sid = stateRef.current.sessionId
+    const entry = recordRef.current
+    if (!entry || entry.sid !== sid) return Promise.resolve('error')
+    if (savedRef.current === sid) return Promise.resolve('saved')
+    if (savingRef.current?.sid === sid) return savingRef.current.promise
+
     const run = async () => {
       guarded(sid, { type: 'SAVE_STATUS', status: 'pending' })
       let res
