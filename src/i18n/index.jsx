@@ -1,11 +1,10 @@
-// Tiny i18n layer: nested locale objects, `{var}` interpolation, English fallback per key.
+// Tiny i18n layer: nested locale objects and `{var}` interpolation. The site is English-only;
+// `lang` is kept so the receipt, email and saved record keep their existing shape.
 import { createContext, useContext, useEffect, useMemo } from 'react'
 import en from './locales/en.js'
-import ml from './locales/ml.js'
-import hi from './locales/hi.js'
 import { UI_LANGUAGES } from './languages.js'
 
-const LOCALES = { en, ml, hi }
+const LOCALES = { en }
 
 const lookup = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj)
 

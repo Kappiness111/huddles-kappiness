@@ -3,13 +3,12 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { RotateCcw } from 'lucide-react'
 import Logo from '../ui/Logo.jsx'
 import Button from '../ui/Button.jsx'
-import { LanguageMenu } from '../ui/LanguagePicker.jsx'
 import { useExperience } from '../../state/ExperienceContext.jsx'
 import { useI18n } from '../../i18n/index.jsx'
 
-/** Thin top bar: logo · step label · language menu · start over (with confirmation). */
+/** Thin top bar: logo · step label · start over (with confirmation). */
 export default function TopBar({ dark = false, label }) {
-  const { state, reset, setLang } = useExperience()
+  const { reset } = useExperience()
   const { t } = useI18n()
   const [confirming, setConfirming] = useState(false)
 
@@ -19,7 +18,6 @@ export default function TopBar({ dark = false, label }) {
         <Logo className="h-8 sm:h-9" onDark={dark} />
         {label && <p className={`eyebrow hidden flex-1 text-center md:block ${dark ? 'text-cream/60' : 'text-espresso/55'}`}>{label}</p>}
         <div className="flex items-center">
-          <LanguageMenu value={state.uiLang} onChange={setLang} label={t('lang.choose')} dark={dark} />
           <div className="relative">
             <button
               type="button"

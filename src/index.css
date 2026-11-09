@@ -26,7 +26,7 @@
   --color-sage: #8a9a7b;
   --color-moss: #4f5d47;
   --color-dusk: #2f3a4f;
-  --color-lab: #1e2a29; /* Mind Lab */
+  --color-lab: #1e2a29; /* deep green */
 
   /* Per-glyph fallback: Latin uses Fraunces/Manrope, Malayalam/Devanagari/Tamil/Telugu fall
      through to their Noto faces automatically, so mixed-script lines always render. */

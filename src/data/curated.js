@@ -4,6 +4,7 @@
 import { BOOKS } from './books.js'
 import { MOVIES } from './movies.js'
 import { REGIONAL_BOOKS, REGIONAL_MOVIES } from './regional.js'
+import { SERIES } from './series.js'
 
 const EXTRA = {
   // books
@@ -114,4 +115,5 @@ function toNewModel(item) {
 }
 
 export const CURATED_BOOKS = [...BOOKS, ...REGIONAL_BOOKS].map(toNewModel)
-export const CURATED_MOVIES = [...MOVIES, ...REGIONAL_MOVIES].map(toNewModel)
+// Films and series together form the "next watch" shelf (series carry format: 'series').
+export const CURATED_MOVIES = [...MOVIES, ...REGIONAL_MOVIES, ...SERIES].map(toNewModel)

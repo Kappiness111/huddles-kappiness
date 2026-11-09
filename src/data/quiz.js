@@ -63,7 +63,7 @@ const SLOTS = [
 ]
 
 // Set id → question-id prefix. Set A keeps the original ids (q1…q10).
-const PREFIX = { A: 'q', B: 'b', C: 'c', D: 'd' }
+const PREFIX = { A: 'q', B: 'b', C: 'c', D: 'd', E: 'e', F: 'f', G: 'g', H: 'h' }
 
 export const SET_IDS = Object.keys(PREFIX)
 
@@ -73,3 +73,19 @@ export const QUESTION_SETS = Object.fromEntries(
 
 /** Every question of every set (lookup by id, e.g. when recording answers). */
 export const QUIZ = SET_IDS.flatMap((set) => QUESTION_SETS[set])
+
+export const SLOT_COUNT = SLOTS.length
+
+/**
+ * A visitor's quiz is a MIX: for each of the 10 slots, one question from any of the sets. The code
+ * is one set letter per slot, e.g. "CAHBDEFGAB" (8^10 ≈ a billion different quizzes). Because every
+ * set is a parallel form with the same weights per slot, any mix is scored exactly like a full set.
+ * A single letter (e.g. "A") still means that whole set.
+ */
+export function questionsFor(code = 'A') {
+  const letters = code.length === 1 ? code.repeat(SLOT_COUNT) : code
+  return SLOTS.map((_, i) => (QUESTION_SETS[letters[i]] ?? QUESTION_SETS.A)[i])
+}
+
+export const isQuizCode = (code) =>
+  typeof code === 'string' && (code.length === 1 || code.length === SLOT_COUNT) && [...code].every((c) => SET_IDS.includes(c))

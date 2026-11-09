@@ -2,9 +2,9 @@
 //
 // Secrets: TMDB_READ_TOKEN (TMDB "API Read Access Token"), ALLOWED_ORIGIN (optional, for CORS).
 // The frontend calls {SUPABASE_URL}/functions/v1/tmdb/<path>?<query>.
-// Only the four read-only endpoints the app needs are forwarded.
+// Only the read-only endpoints the app needs (films and TV series) are forwarded.
 
-const ALLOWED = /^\/(discover\/movie|search\/movie|genre\/movie\/list|movie\/\d+)$/
+const ALLOWED = /^\/(discover\/(movie|tv)|search\/movie|genre\/(movie|tv)\/list|(movie|tv)\/\d+)$/
 
 const env = (k) => Deno.env.get(k) ?? ''
 const cors = () => ({

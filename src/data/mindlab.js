@@ -1,70 +1,53 @@
-// THE MIND LAB — the only thinking game: exactly three short challenges.
-// Text (questions, options, feedback, explanations) lives in the locale files under `mindlab.*`.
-//
-// It is kept SEPARATE from the This-or-That preference scoring: nothing here feeds the
-// recommendations, no score or label is shown, and responses are stored only as what was chosen.
+// THE MIND LAB: three short personality scenarios, one from each section, with no right answers.
+// Every option carries genre and trait weights, so the Mind Lab feeds the recommendation profile
+// alongside This or That (see mindLabQuestions() and lib/recommendationEngine.js).
+// Text (situations, questions, options, notes) lives in the locale file under `mindlab.*`.
+// Generated from one spec so the text and the weights always line up.
 import { hashString } from '../lib/ids.js'
 
-/** Challenge 1 · A Different Perspective. No option is "wrong"; `considered` marks the
- *  response that best avoids assumptions, and every option has its own reflective note. */
-export const PERSPECTIVE_BANK = [
-  { id: 'p1', options: ['a', 'b', 'c', 'd'], considered: 'b' },
-  { id: 'p2', options: ['a', 'b', 'c', 'd'], considered: 'b' },
-  { id: 'p3', options: ['a', 'b', 'c', 'd'], considered: 'b' },
-  { id: 'p4', options: ['a', 'b', 'c', 'd'], considered: 'c' },
-  { id: 'p5', options: ['a', 'b', 'c', 'd'], considered: 'd' },
-  { id: 'p6', options: ['a', 'b', 'c', 'd'], considered: 'b' },
-  { id: 'p7', options: ['a', 'b', 'c', 'd'], considered: 'c' },
-  { id: 'p8', options: ['a', 'b', 'c', 'd'], considered: 'a' },
-  { id: 'p9', options: ['a', 'b', 'c', 'd'], considered: 'c' },
-  { id: 'p10', options: ['a', 'b', 'c', 'd'], considered: 'b' },
-  { id: 'p11', options: ['a', 'b', 'c', 'd'], considered: 'c' },
-  { id: 'p12', options: ['a', 'b', 'c', 'd'], considered: 'd' },
-]
+export const CHALLENGES = ['inner', 'instinct', 'decision']
+export const OPTION_KEYS = ['a', 'b', 'c', 'd']
 
-/** Challenge 2 · Pattern Recognition. Each puzzle states its rule as a function, so the answer is
- *  computed — never typed by hand — and `scripts/verify-mindlab.mjs` checks it against the options. */
-export const PATTERN_BANK = [
-  { id: 'n1', seq: [2, 6, 12, 20, 30], rule: (s) => s.at(-1) + (s.at(-1) - s.at(-2) + 2), options: [36, 40, 42, 48] },
-  { id: 'n2', seq: [3, 5, 9, 17, 33], rule: (s) => 2 * s.at(-1) - 1, options: [49, 57, 65, 66] },
-  { id: 'n3', seq: [1, 1, 2, 3, 5, 8], rule: (s) => s.at(-1) + s.at(-2), options: [11, 12, 13, 15] },
-  { id: 'n4', seq: [1, 4, 9, 16, 25], rule: (s) => (s.length + 1) ** 2, options: [30, 34, 36, 49] },
-  { id: 'n5', seq: [2, 3, 5, 7, 11, 13], rule: () => 17, options: [15, 17, 19, 21] },
-  { id: 'n6', seq: [4, 9, 19, 39, 79], rule: (s) => 2 * s.at(-1) + 1, options: [119, 158, 159, 160] },
-  { id: 'n7', seq: [1, 2, 6, 24, 120], rule: (s) => s.at(-1) * (s.length + 1), options: [240, 600, 720, 840] },
-  { id: 'n8', seq: [7, 10, 16, 25, 37], rule: (s) => s.at(-1) + (s.at(-1) - s.at(-2) + 3), options: [49, 50, 52, 55] },
-  { id: 'n9', seq: [7, 14, 21, 28, 35], rule: (s) => s.at(-1) + (s.at(-1) - s.at(-2)), options: [40, 42, 45, 49] },
-  { id: 'n10', seq: [1, 8, 27, 64, 125], rule: (s) => (s.length + 1) ** 3, options: [150, 196, 216, 225] },
-  { id: 'n11', seq: [100, 91, 82, 73, 64], rule: (s) => s.at(-1) + (s.at(-1) - s.at(-2)), options: [53, 55, 56, 57] },
-  { id: 'n12', seq: [1, 3, 9, 27, 81], rule: (s) => s.at(-1) * 3, options: [162, 189, 243, 324] },
-  { id: 'n13', seq: [1, 4, 2, 5, 3, 6], rule: (s) => s.at(-1) + (s.length % 2 === 1 ? 3 : -2), options: [4, 7, 8, 9] },
-  { id: 'n14', seq: [96, 48, 24, 12, 6], rule: (s) => s.at(-1) / 2, options: [2, 3, 4, 6] },
-  { id: 'n15', seq: [1, 1, 2, 4, 7, 13], rule: (s) => s.slice(-3).reduce((a, b) => a + b, 0), options: [20, 22, 24, 26] },
-  { id: 'n16', seq: [2, 10, 4, 20, 6, 30], rule: (s) => s.at(-2) + (s.length % 2 === 0 ? 2 : 10), options: [8, 12, 36, 40] },
-  { id: 'n17', seq: [3, 6, 8, 16, 18, 36], rule: (s) => (s.length % 2 === 1 ? s.at(-1) * 2 : s.at(-1) + 2), options: [38, 40, 54, 72] },
-  { id: 'n18', seq: [1, 2, 6, 15, 31], rule: (s) => s.at(-1) + s.length ** 2, options: [47, 52, 56, 63] },
-]
-export const patternAnswer = (p) => p.rule(p.seq)
+export const BANKS = {
+  inner: [
+    { id: 'i1', a: { genres: { relationships: 2, romance: 1, drama: 1 }, traits: { heart: 2 } }, b: { genres: { fantasy: 2, literary: 1, adventure: 1 }, traits: { dreamy: 2 } }, c: { genres: { adventure: 2, selfDiscovery: 2 }, traits: { bold: 1, dreamy: 1 } }, d: { genres: { philosophy: 2, psychological: 1, literary: 1 }, traits: { mind: 2 } } },
+    { id: 'i2', a: { genres: { drama: 2, relationships: 2 }, traits: { heart: 2 } }, b: { genres: { mystery: 2, psychological: 2 }, traits: { mind: 1, grounded: 1 } }, c: { genres: { adventure: 2, fantasy: 1, scifi: 1 }, traits: { dreamy: 2 } }, d: { genres: { selfDiscovery: 2, contemporary: 2 }, traits: { calm: 1, heart: 1 } } },
+    { id: 'i3', a: { genres: { romance: 3, historical: 1 }, traits: { heart: 2 } }, b: { genres: { mystery: 3, thriller: 1 }, traits: { mind: 1, bold: 1 } }, c: { genres: { historical: 3, literary: 1 }, traits: { calm: 1, grounded: 1 } }, d: { genres: { philosophy: 2, selfDiscovery: 2 }, traits: { mind: 1, calm: 1 } } },
+    { id: 'i4', a: { genres: { contemporary: 2, literary: 1, drama: 1 }, traits: { calm: 2 } }, b: { genres: { scifi: 2, philosophy: 1, fantasy: 1 }, traits: { dreamy: 2 } }, c: { genres: { thriller: 2, mystery: 2 }, traits: { bold: 1, mind: 1 } }, d: { genres: { drama: 2, romance: 1, selfDiscovery: 1 }, traits: { heart: 1, dreamy: 1 } } },
+    { id: 'i5', a: { genres: { contemporary: 2, relationships: 2 }, traits: { heart: 1, grounded: 1 } }, b: { genres: { drama: 2, selfDiscovery: 2 }, traits: { heart: 1, bold: 1 } }, c: { genres: { adventure: 3, thriller: 1 }, traits: { bold: 2 } }, d: { genres: { philosophy: 2, scifi: 1, psychological: 1 }, traits: { mind: 2 } } },
+    { id: 'i6', a: { genres: { relationships: 2, romance: 1, drama: 1 }, traits: { heart: 2 } }, b: { genres: { adventure: 2, mystery: 1, scifi: 1 }, traits: { bold: 1, mind: 1 } }, c: { genres: { fantasy: 2, literary: 1, romance: 1 }, traits: { dreamy: 2 } }, d: { genres: { philosophy: 2, psychological: 1, literary: 1 }, traits: { mind: 1, calm: 1 } } },
+    { id: 'i7', a: { genres: { romance: 2, literary: 2 }, traits: { heart: 1, dreamy: 1 } }, b: { genres: { mystery: 3, thriller: 1 }, traits: { mind: 2 } }, c: { genres: { fantasy: 2, scifi: 2 }, traits: { dreamy: 2 } }, d: { genres: { selfDiscovery: 2, historical: 1, contemporary: 1 }, traits: { grounded: 2 } } },
+    { id: 'i8', a: { genres: { romance: 2, relationships: 2 }, traits: { heart: 2 } }, b: { genres: { psychological: 2, literary: 1, drama: 1 }, traits: { mind: 2 } }, c: { genres: { contemporary: 2, adventure: 1, relationships: 1 }, traits: { bold: 2 } }, d: { genres: { fantasy: 2, romance: 1, selfDiscovery: 1 }, traits: { dreamy: 2 } } },
+    { id: 'i9', a: { genres: { historical: 3, adventure: 1 }, traits: { calm: 1, mind: 1 } }, b: { genres: { adventure: 2, selfDiscovery: 2 }, traits: { bold: 1, calm: 1 } }, c: { genres: { relationships: 3, romance: 1 }, traits: { heart: 2 } }, d: { genres: { scifi: 3, contemporary: 1 }, traits: { dreamy: 1, bold: 1 } } },
+    { id: 'i10', a: { genres: { romance: 2, drama: 2 }, traits: { heart: 2 } }, b: { genres: { mystery: 2, psychological: 2 }, traits: { mind: 2 } }, c: { genres: { selfDiscovery: 3, philosophy: 1 }, traits: { dreamy: 1, heart: 1 } }, d: { genres: { scifi: 2, philosophy: 2 }, traits: { mind: 1, dreamy: 1 } } },
+  ],
+  instinct: [
+    { id: 's1', a: { genres: { relationships: 2, fantasy: 1, drama: 1 }, traits: { heart: 1, dreamy: 1 } }, b: { genres: { mystery: 2, thriller: 2 }, traits: { mind: 1, bold: 1 } }, c: { genres: { scifi: 2, philosophy: 1, adventure: 1 }, traits: { dreamy: 2 } }, d: { genres: { literary: 2, selfDiscovery: 1, contemporary: 1 }, traits: { calm: 2 } } },
+    { id: 's2', a: { genres: { adventure: 3, thriller: 1 }, traits: { bold: 2 } }, b: { genres: { historical: 2, mystery: 2 }, traits: { mind: 1, grounded: 1 } }, c: { genres: { relationships: 2, adventure: 1, romance: 1 }, traits: { heart: 2 } }, d: { genres: { psychological: 2, mystery: 1, drama: 1 }, traits: { mind: 2 } } },
+    { id: 's3', a: { genres: { relationships: 2, drama: 2 }, traits: { heart: 2 } }, b: { genres: { psychological: 3, drama: 1 }, traits: { mind: 2 } }, c: { genres: { thriller: 2, mystery: 2 }, traits: { bold: 1, mind: 1 } }, d: { genres: { selfDiscovery: 2, literary: 1, contemporary: 1 }, traits: { calm: 2 } } },
+    { id: 's4', a: { genres: { contemporary: 2, relationships: 1, adventure: 1 }, traits: { bold: 1, heart: 1 } }, b: { genres: { literary: 2, historical: 2 }, traits: { calm: 2 } }, c: { genres: { scifi: 2, thriller: 1, psychological: 1 }, traits: { mind: 1, bold: 1 } }, d: { genres: { romance: 3, drama: 1 }, traits: { heart: 1, dreamy: 1 } } },
+    { id: 's5', a: { genres: { adventure: 2, selfDiscovery: 2 }, traits: { bold: 1, dreamy: 1 } }, b: { genres: { relationships: 2, contemporary: 2 }, traits: { heart: 1, grounded: 1 } }, c: { genres: { mystery: 2, historical: 1, psychological: 1 }, traits: { mind: 2 } }, d: { genres: { literary: 2, drama: 1, philosophy: 1 }, traits: { calm: 2 } } },
+    { id: 's6', a: { genres: { fantasy: 2, adventure: 1, romance: 1 }, traits: { dreamy: 1, bold: 1 } }, b: { genres: { selfDiscovery: 2, contemporary: 1, adventure: 1 }, traits: { bold: 1, grounded: 1 } }, c: { genres: { romance: 3, relationships: 1 }, traits: { heart: 2 } }, d: { genres: { philosophy: 2, scifi: 1, psychological: 1 }, traits: { mind: 2 } } },
+    { id: 's7', a: { genres: { contemporary: 2, drama: 1, psychological: 1 }, traits: { grounded: 2 } }, b: { genres: { adventure: 3, mystery: 1 }, traits: { bold: 2 } }, c: { genres: { relationships: 3, contemporary: 1 }, traits: { heart: 2 } }, d: { genres: { literary: 2, selfDiscovery: 1, philosophy: 1 }, traits: { calm: 2 } } },
+    { id: 's8', a: { genres: { thriller: 2, mystery: 2 }, traits: { bold: 2 } }, b: { genres: { psychological: 2, fantasy: 1, mystery: 1 }, traits: { mind: 1, dreamy: 1 } }, c: { genres: { relationships: 2, drama: 2 }, traits: { heart: 2 } }, d: { genres: { contemporary: 3, relationships: 1 }, traits: { calm: 1, grounded: 1 } } },
+    { id: 's9', a: { genres: { drama: 2, psychological: 1, contemporary: 1 }, traits: { heart: 1, mind: 1 } }, b: { genres: { historical: 3, literary: 1 }, traits: { calm: 2 } }, c: { genres: { relationships: 3, romance: 1 }, traits: { heart: 2 } }, d: { genres: { literary: 2, fantasy: 1, philosophy: 1 }, traits: { dreamy: 2 } } },
+    { id: 's10', a: { genres: { adventure: 2, thriller: 2 }, traits: { bold: 2 } }, b: { genres: { mystery: 3, scifi: 1 }, traits: { mind: 2 } }, c: { genres: { relationships: 2, romance: 1, drama: 1 }, traits: { heart: 2 } }, d: { genres: { fantasy: 2, adventure: 1, selfDiscovery: 1 }, traits: { dreamy: 1, bold: 1 } } },
+  ],
+  decision: [
+    { id: 'd1', a: { genres: { relationships: 2, historical: 1, drama: 1 }, traits: { heart: 2 } }, b: { genres: { selfDiscovery: 2, literary: 2 }, traits: { calm: 1, mind: 1 } }, c: { genres: { romance: 2, drama: 2 }, traits: { heart: 1, dreamy: 1 } }, d: { genres: { contemporary: 2, philosophy: 2 }, traits: { grounded: 2 } } },
+    { id: 'd2', a: { genres: { selfDiscovery: 2, adventure: 2 }, traits: { bold: 2 } }, b: { genres: { relationships: 3, drama: 1 }, traits: { heart: 2 } }, c: { genres: { contemporary: 2, drama: 2 }, traits: { grounded: 2 } }, d: { genres: { philosophy: 2, fantasy: 1, romance: 1 }, traits: { dreamy: 2 } } },
+    { id: 'd3', a: { genres: { psychological: 3, drama: 1 }, traits: { mind: 2 } }, b: { genres: { selfDiscovery: 2, drama: 2 }, traits: { heart: 1, calm: 1 } }, c: { genres: { mystery: 2, thriller: 2 }, traits: { bold: 1, mind: 1 } }, d: { genres: { relationships: 3, romance: 1 }, traits: { heart: 2 } } },
+    { id: 'd4', a: { genres: { historical: 3, romance: 1 }, traits: { dreamy: 1, calm: 1 } }, b: { genres: { scifi: 3, adventure: 1 }, traits: { bold: 1, dreamy: 1 } }, c: { genres: { relationships: 2, historical: 1, drama: 1 }, traits: { heart: 2 } }, d: { genres: { contemporary: 2, selfDiscovery: 2 }, traits: { grounded: 2 } } },
+    { id: 'd5', a: { genres: { thriller: 2, psychological: 2 }, traits: { bold: 2 } }, b: { genres: { contemporary: 2, romance: 1, relationships: 1 }, traits: { heart: 1, grounded: 1 } }, c: { genres: { literary: 2, philosophy: 2 }, traits: { mind: 1, calm: 1 } }, d: { genres: { drama: 2, selfDiscovery: 2 }, traits: { heart: 1, dreamy: 1 } } },
+    { id: 'd6', a: { genres: { romance: 3, relationships: 1 }, traits: { heart: 2 } }, b: { genres: { scifi: 3, philosophy: 1 }, traits: { dreamy: 1, mind: 1 } }, c: { genres: { selfDiscovery: 3, philosophy: 1 }, traits: { calm: 1, heart: 1 } }, d: { genres: { mystery: 3, thriller: 1 }, traits: { mind: 1, bold: 1 } } },
+    { id: 'd7', a: { genres: { adventure: 2, relationships: 1, contemporary: 1 }, traits: { bold: 1, heart: 1 } }, b: { genres: { psychological: 3, mystery: 1 }, traits: { mind: 2 } }, c: { genres: { literary: 3, selfDiscovery: 1 }, traits: { calm: 1, dreamy: 1 } }, d: { genres: { scifi: 3, historical: 1 }, traits: { mind: 1, dreamy: 1 } } },
+    { id: 'd8', a: { genres: { drama: 2, relationships: 2 }, traits: { heart: 2 } }, b: { genres: { psychological: 2, philosophy: 2 }, traits: { mind: 2 } }, c: { genres: { contemporary: 2, adventure: 1, relationships: 1 }, traits: { bold: 2 } }, d: { genres: { selfDiscovery: 2, romance: 1, drama: 1 }, traits: { dreamy: 1, heart: 1 } } },
+    { id: 'd9', a: { genres: { drama: 2, relationships: 2 }, traits: { heart: 2 } }, b: { genres: { mystery: 2, psychological: 2 }, traits: { mind: 2 } }, c: { genres: { adventure: 2, thriller: 1, contemporary: 1 }, traits: { bold: 2 } }, d: { genres: { philosophy: 3, selfDiscovery: 1 }, traits: { calm: 1, mind: 1 } } },
+    { id: 'd10', a: { genres: { romance: 2, relationships: 2 }, traits: { heart: 2 } }, b: { genres: { adventure: 3, selfDiscovery: 1 }, traits: { bold: 2 } }, c: { genres: { philosophy: 3, literary: 1 }, traits: { mind: 1, calm: 1 } }, d: { genres: { contemporary: 3, relationships: 1 }, traits: { heart: 1, grounded: 1 } } },
+  ],
+}
 
-/** Challenge 3 · The Decision Room. Subjective: no universal right answer. */
-export const DECISION_BANK = [
-  { id: 'd1', options: ['a', 'b', 'c', 'd'] },
-  { id: 'd2', options: ['a', 'b', 'c', 'd'] },
-  { id: 'd3', options: ['a', 'b', 'c', 'd'] },
-  { id: 'd4', options: ['a', 'b', 'c', 'd'] },
-  { id: 'd5', options: ['a', 'b', 'c', 'd'] },
-  { id: 'd6', options: ['a', 'b', 'c', 'd'] },
-  { id: 'd7', options: ['a', 'b', 'c', 'd'] },
-  { id: 'd8', options: ['a', 'b', 'c', 'd'] },
-  { id: 'd9', options: ['a', 'b', 'c', 'd'] },
-  { id: 'd10', options: ['a', 'b', 'c', 'd'] },
-  { id: 'd11', options: ['a', 'b', 'c', 'd'] },
-  { id: 'd12', options: ['a', 'b', 'c', 'd'] },
-]
-
-export const CHALLENGES = ['perspective', 'pattern', 'decision']
-
-const BANKS = { perspective: PERSPECTIVE_BANK, pattern: PATTERN_BANK, decision: DECISION_BANK }
+export const findMindLab = (kind, id) => BANKS[kind]?.find((x) => x.id === id)
 
 // Final avalanche step (MurmurHash3 fmix32) so the three salted hashes are independent of each other.
 function mix(h) {
@@ -77,11 +60,9 @@ function mix(h) {
 }
 
 /**
- * Per-visitor selection: one item from each bank. The seed is a fresh random UUID, so every
- * visitor (on any phone) gets an independent pick. Each bank is hashed with its own salt so the
- * three picks don't move together. `previous` is the last visitor's picks on this device: those
- * items are skipped, so back-to-back visitors at the stall never see the same question.
- * lib/mindLabSession.js keeps the result for the whole visit, including across a page refresh.
+ * Per-visitor selection: one scenario from each section. The seed is a fresh random UUID, so every
+ * visitor gets an independent pick. `previous` is the last visitor's picks on this device: those are
+ * skipped, so back-to-back visitors at the stall never see the same scenario.
  */
 export function pickMindLab(sessionId, previous = {}) {
   return Object.fromEntries(
@@ -93,6 +74,20 @@ export function pickMindLab(sessionId, previous = {}) {
   )
 }
 
-export const findPattern = (id) => PATTERN_BANK.find((p) => p.id === id)
-export const findPerspective = (id) => PERSPECTIVE_BANK.find((p) => p.id === id)
-export const findDecision = (id) => DECISION_BANK.find((p) => p.id === id)
+/**
+ * This visitor's three scenarios as scoring questions (same shape as a This-or-That question, with
+ * four sides) plus their answers, ready for buildProfile().
+ */
+export function mindLabQuestions(picks = {}, responses = {}) {
+  const questions = []
+  const answers = {}
+  for (const kind of CHALLENGES) {
+    const item = findMindLab(kind, picks[kind])
+    if (!item) continue
+    const id = `ml-${item.id}`
+    questions.push({ ...item, id, labelPrefix: `mindlab.${kind}.${item.id}` })
+    const choice = responses[kind]?.choice
+    if (OPTION_KEYS.includes(choice)) answers[id] = choice
+  }
+  return { questions, answers }
+}

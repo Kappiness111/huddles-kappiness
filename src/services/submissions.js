@@ -25,6 +25,7 @@ const recRecord = (x) =>
     language: x.language,
     language_name: LANGUAGE_NATIVE[x.language] ?? x.language,
     genre: x.genreLabel || null,
+    format: x.format ?? null, // 'film' | 'series' for watch picks
     cover: x.cover ?? null, // https URL from Google Books / Open Library / TMDB, or the bundled /media/... path
     link: x.link ?? null,
     isbn: x.isbn ?? null,
@@ -46,9 +47,9 @@ export function buildSubmission(state) {
     website_language: uiLang,
     book_language: prefs.book,
     movie_language: prefs.movie,
-    // What was chosen in each challenge — no scores, no labels.
-    mind_lab_responses: mindLab.responses,
-    mind_lab_completed: mindLab.completed,
+    // What was chosen in each Mind Lab scenario: { inner: { id, choice }, … }
+    mind_lab_responses: mindLab?.responses ?? {},
+    mind_lab_completed: Boolean(mindLab?.completed),
     quiz_answers: QUIZ.filter((q) => quizAnswers[q.id]).map((q) => ({ question_id: q.id, choice: quizAnswers[q.id] })),
     personality_type: p.id,
     story_identity: {

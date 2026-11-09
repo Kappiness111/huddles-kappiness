@@ -4,7 +4,7 @@ import { answersBehind, sharedGenres } from './recommendationEngine.js'
 export function whyText({ t, list }, profile, item) {
   const [genre] = sharedGenres(profile, item.genres, 1)
   if (!genre) return t('rec.whyGenre', { genre: t('genres.drama') })
-  const choices = answersBehind(profile, genre, 2).map((d) => `“${t(`quiz.${d.questionId}.${d.side}.label`)}”`)
+  const choices = answersBehind(profile, genre, 2).map((d) => `“${t(d.labelKey ?? `quiz.${d.questionId}.${d.side}.label`)}”`)
   const genreName = t(`genres.${genre}`)
   return choices.length ? t('rec.whyChoices', { choices: list(choices), genre: genreName }) : t('rec.whyGenre', { genre: genreName })
 }

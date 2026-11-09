@@ -129,7 +129,6 @@ try {
       uiLang,
       attendee: { name: 'Asha Menon', email, phone: '', consentData: true, consentEmail: true },
       prefs: { book: bookLang, movie: movieLang },
-      mindLab: { responses: { perspective: 'b' }, completed: true },
       quizAnswers: answers,
       result,
       picks: { book: books.items[0], movie: movies.items[0] },
@@ -208,11 +207,11 @@ try {
   const xss = renderReceiptEmail({ ...table.get(rec.id), full_name: '<script>alert(1)</script>', recommended_book: { ...b, cover: 'https://evil.example/x.jpg', link: 'javascript:alert(1)' } }, { siteUrl: fakeEnv.SITE_URL })
   ok(!xss.html.includes('<script>') && !xss.html.includes('evil.example') && !xss.html.includes('javascript:'), 'HTML escaped; unknown image/link hosts dropped')
 
-  // ── 7. Previews in every interface language ──
+  // ── 7. Previews for a few recommendation languages (the interface itself is English-only) ──
   const outDir = join(tmpdir(), 'kappiness-email-preview')
   mkdirSync(outDir, { recursive: true })
   for (const lang of ['en', 'ml', 'hi']) {
-    const s = await makeState({ uiLang: lang, bookLang: lang === 'hi' ? 'hi' : 'ml', movieLang: lang === 'hi' ? 'hi' : 'ml' })
+    const s = await makeState({ bookLang: lang, movieLang: lang })
     const row = { ...buildSubmission(s), created_at: new Date().toISOString() }
     const { html, subject } = renderReceiptEmail(row, { siteUrl: 'http://localhost:4173/huddles-kappiness' })
     writeFileSync(join(outDir, `receipt-email-${lang}.html`), html)

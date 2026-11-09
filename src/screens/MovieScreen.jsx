@@ -8,7 +8,7 @@ import { LANGUAGE_NATIVE, MOVIE_LANGUAGES } from '../i18n/languages.js'
 import { whyText } from '../lib/why.js'
 
 export default function MovieScreen() {
-  const { state, nextRec, go, loadRec } = useExperience()
+  const { state, reactRec, go, loadRec } = useExperience()
   const i18n = useI18n()
   const { t } = i18n
   const rec = state.recs.movie
@@ -38,12 +38,14 @@ export default function MovieScreen() {
             kind="movie"
             dark
             rec={rec}
+            profile={state.result.profile}
             item={movie}
             accent="#D9A45B"
-            kicker={t('movie.kicker')}
+            kicker={movie.format === 'series' ? t('movie.kickerSeries') : t('movie.kicker')}
             title={movie.title}
             subtitle={movie.originalTitle && movie.originalTitle !== movie.title ? `${t('movie.original')}: ${movie.originalTitle}` : null}
             meta={[
+              [t('movie.format'), movie.format === 'series' ? t('movie.series') : t('movie.film')],
               [t('rec.language'), LANGUAGE_NATIVE[movie.language] ?? movie.language],
               [t('rec.genre'), movie.genreLabel],
               [t('movie.released'), movie.year],
@@ -52,7 +54,7 @@ export default function MovieScreen() {
             why={whyText(i18n, state.result.profile, movie)}
             langOptions={MOVIE_LANGUAGES}
             onLang={(l) => loadRec('movie', l)}
-            onAnother={() => nextRec('movie')}
+            onReact={(reaction, id) => reactRec('movie', reaction, id)}
             primary={
               <NextButton variant="light" onClick={() => go('receipt')}>
                 {t('movie.next')}

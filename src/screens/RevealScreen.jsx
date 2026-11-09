@@ -11,7 +11,7 @@ import { profileLine } from '../lib/why.js'
 const BREW_MS = 2700
 
 export default function RevealScreen() {
-  const { state, go } = useExperience()
+  const { state, go, loadRecs } = useExperience()
   const i18n = useI18n()
   const { t } = i18n
   const [brewing, setBrewing] = useState(true)
@@ -91,7 +91,11 @@ export default function RevealScreen() {
                   </ul>
                 </div>
                 <p className="mt-6 text-xs opacity-55">{t('reveal.disclaimer')}</p>
-                <Button variant="light" size="lg" onClick={() => go('prefs')} className="mt-8 w-full sm:w-auto sm:px-10">
+                <Button variant="light" size="lg" onClick={() => {
+                    // No language question: the best matches across English, Malayalam, Hindi, Tamil and Telugu.
+                    loadRecs({ book: 'any', movie: 'any' })
+                    go('book')
+                  }} className="mt-8 w-full sm:w-auto sm:px-10">
                   {t('reveal.cta')}
                   <ArrowRight className="h-5 w-5" aria-hidden="true" />
                 </Button>

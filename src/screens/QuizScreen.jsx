@@ -1,12 +1,12 @@
 // THIS OR THAT — the only preference quiz. One question per screen, an editorial split of two
 // panels. The palette pairing changes from question to question so no two screens feel the same.
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import TopBar from '../components/layout/TopBar.jsx'
 import Button from '../components/ui/Button.jsx'
 import Motif from '../illustrations/Motif.jsx'
-import { QUESTION_SETS } from '../data/quiz.js'
+import { questionsFor } from '../data/quiz.js'
 import { useExperience } from '../state/ExperienceContext.jsx'
 import { useI18n } from '../i18n/index.jsx'
 
@@ -26,8 +26,8 @@ export default function QuizScreen() {
   const { state, answerQuiz, finishQuiz, go } = useExperience()
   const { t } = useI18n()
   const answers = state.quizAnswers
-  // This visitor's assigned question set — fixed for the whole session.
-  const QUIZ = QUESTION_SETS[state.quizSet] ?? QUESTION_SETS.A
+  // This visitor's own mix of questions — fixed for the whole session.
+  const QUIZ = useMemo(() => questionsFor(state.quizSet), [state.quizSet])
   const TOTAL = QUIZ.length
   const [index, setIndex] = useState(() => {
     const i = QUIZ.findIndex((x) => !answers[x.id])
@@ -35,6 +35,8 @@ export default function QuizScreen() {
   })
   const [dir, setDir] = useState(1)
   const [interlude, setInterlude] = useState(null)
+  // The two genres this answer pushed up most, shown as a quick "+ Mystery + Thriller" pop.
+  const [boost, setBoost] = useState(null)
   const timer = useRef(null)
   const q = QUIZ[index]
   const choice = answers[q.id]
@@ -65,6 +67,8 @@ export default function QuizScreen() {
     if (interlude) return
     clearTimeout(timer.current)
     answerQuiz(q.id, side)
+    const top = Object.entries(q[side].genres).sort((x, y) => y[1] - x[1]).slice(0, 2).map(([g]) => g)
+    setBoost({ key: `${q.id}-${side}-${Date.now()}`, genres: top })
     const from = index
     timer.current = setTimeout(() => advance(from), ADVANCE_MS)
   }
@@ -142,6 +146,26 @@ export default function QuizScreen() {
                 </motion.button>
               )
             })}
+            <AnimatePresence>
+              {boost && (
+                <motion.div
+                  key={boost.key}
+                  initial={{ opacity: 0, y: 14, scale: 0.9 }}
+                  animate={{ opacity: 1, y: -6, scale: 1 }}
+                  exit={{ opacity: 0, y: -24 }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+                  onAnimationComplete={() => setTimeout(() => setBoost((b) => (b?.key === boost.key ? null : b)), 500)}
+                  className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center gap-2"
+                  aria-hidden="true"
+                >
+                  {boost.genres.map((g) => (
+                    <span key={g} className="rounded-full bg-espresso px-3.5 py-1.5 text-sm font-semibold text-cream shadow-[0_10px_24px_-10px_rgba(36,25,21,.6)]">
+                      + {t(`genres.${g}`)}
+                    </span>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
             <span className="display pointer-events-none absolute left-1/2 top-1/2 z-10 grid h-12 min-w-12 -translate-x-1/2 -translate-y-1/2 place-items-center whitespace-nowrap rounded-full bg-cream px-3 text-lg italic leading-none text-espresso ring-1 ring-espresso/15 md:h-14 md:min-w-14" aria-hidden="true">
               {t('quiz.or')}
             </span>

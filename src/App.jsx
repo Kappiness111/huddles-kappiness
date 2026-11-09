@@ -8,7 +8,6 @@ import RegisterScreen from './screens/RegisterScreen.jsx'
 import MindLabScreen from './screens/MindLabScreen.jsx'
 import QuizScreen from './screens/QuizScreen.jsx'
 import RevealScreen from './screens/RevealScreen.jsx'
-import PrefsScreen from './screens/PrefsScreen.jsx'
 import BookScreen from './screens/BookScreen.jsx'
 import MovieScreen from './screens/MovieScreen.jsx'
 import ReceiptScreen from './screens/ReceiptScreen.jsx'
@@ -20,7 +19,6 @@ const SCREENS = {
   mindlab: MindLabScreen,
   quiz: QuizScreen,
   reveal: RevealScreen,
-  prefs: PrefsScreen,
   book: BookScreen,
   movie: MovieScreen,
   receipt: ReceiptScreen,
@@ -32,7 +30,6 @@ const NEEDS = {
   mindlab: (s) => s.attendee.name,
   quiz: (s) => s.attendee.name,
   reveal: (s) => s.result,
-  prefs: (s) => s.result,
   book: (s) => s.result && s.prefs.book,
   movie: (s) => s.result && s.prefs.movie,
   receipt: (s) => s.result && s.prefs.book,

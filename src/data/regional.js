@@ -1,6 +1,7 @@
 // Curated Malayalam, Hindi, Tamil and Telugu titles for the offline / fallback shelf.
 // `language` is the ORIGINAL language of the work. `wiki` is the English Wikipedia page that
-// scripts/fetch-media.mjs uses to download the real cover or poster.
+// scripts/fetch-media.mjs uses to download the real cover or poster. `noCover: true` = no verified
+// cover exists, so the app shows its designed typographic cover rather than risk a wrong image.
 
 export const REGIONAL_BOOKS = [
   // ── Malayalam ──
@@ -113,6 +114,80 @@ export const REGIONAL_BOOKS = [
     description: 'Fifteen-year-old Nirmala is married to a much older widower, with tragic consequences for everyone in the house.',
     genres: { drama: 3, psychological: 1 }, wiki: 'Nirmala_(novel)',
   },
+  // ── Tamil ──
+  {
+    id: 'ponniyin-selvan', title: 'Ponniyin Selvan', nativeTitle: 'பொன்னியின் செல்வன்', author: 'Kalki Krishnamurthy', year: 1955, language: 'ta',
+    genreLabel: 'Historical · Epic',
+    description: 'Vandiyathevan carries a secret message across the Chola kingdom and is pulled into palace intrigue around the young prince Arulmozhivarman.',
+    genres: { historical: 3, adventure: 2, drama: 2, mystery: 1 }, wiki: 'Ponniyin_Selvan',
+  },
+  {
+    id: 'sivagamiyin-sapatham', title: 'Sivagamiyin Sapatham', nativeTitle: 'சிவகாமியின் சபதம்', author: 'Kalki Krishnamurthy', year: 1948, language: 'ta',
+    genreLabel: 'Historical · Romance',
+    description: 'In the Pallava kingdom, the dancer Sivagami loves Prince Narasimhavarman, and makes a vow that shapes a war.',
+    genres: { historical: 3, romance: 2, drama: 2 }, wiki: 'Sivagamiyin_Sapatham', noCover: true,
+  },
+  {
+    id: 'parthiban-kanavu', title: 'Parthiban Kanavu', nativeTitle: 'பார்த்திபன் கனவு', author: 'Kalki Krishnamurthy', year: 1942, language: 'ta',
+    genreLabel: 'Historical · Adventure',
+    description: "A Chola king dreams of a free kingdom, and his son Vikraman sets out to make the dream come true.",
+    genres: { historical: 3, adventure: 2, selfDiscovery: 1 }, wiki: 'Parthiban_Kanavu',
+  },
+  {
+    id: 'karukku', title: 'Karukku', nativeTitle: 'கருக்கு', author: 'Bama', year: 1992, language: 'ta',
+    genreLabel: 'Memoir-Novel · Identity',
+    description: 'Bama tells of growing up as a Dalit Christian woman in rural Tamil Nadu, and of finding her own voice.',
+    genres: { selfDiscovery: 3, drama: 2, contemporary: 1, literary: 2 }, wiki: 'Karukku', noCover: true,
+  },
+  {
+    id: 'oru-puliyamarathin-kathai', title: 'Oru Puliyamarathin Kathai (Tale of a Tamarind Tree)', nativeTitle: 'ஒரு புளியமரத்தின் கதை', author: 'Sundara Ramaswamy', year: 1966, language: 'ta',
+    genreLabel: 'Literary · Satire',
+    description: 'A tamarind tree at a town crossroads watches the people, politics and ambitions around it change over the decades.',
+    genres: { literary: 3, contemporary: 2, philosophy: 1, historical: 1 }, wiki: 'Oru_Puliyamarathin_Kathai', noCover: true,
+  },
+  {
+    id: 'mogamul', title: 'Mogamul', nativeTitle: 'மோகமுள்', author: 'Thi. Janakiraman', year: 1956, language: 'ta',
+    genreLabel: 'Romance · Literary',
+    description: 'In Kumbakonam, young Babu devotes himself to Carnatic music, and to his love for Yamuna, an older woman.',
+    genres: { romance: 3, literary: 2, drama: 1, selfDiscovery: 1 }, wiki: 'Mogamul', noCover: true,
+  },
+  // ── Telugu ──
+  {
+    id: 'veyipadagalu', title: 'Veyipadagalu', nativeTitle: 'వేయిపడగలు', author: 'Viswanatha Satyanarayana', year: 1934, language: 'te',
+    genreLabel: 'Classic · Family Saga',
+    description: 'The saga of Dharmarao and his family as old traditions in an Andhra village meet a fast-changing modern world.',
+    genres: { historical: 2, literary: 3, drama: 2, philosophy: 1 }, wiki: 'Veyipadagalu', noCover: true,
+  },
+  {
+    id: 'kanyasulkam', title: 'Kanyasulkam', nativeTitle: 'కన్యాశుల్కం', author: 'Gurajada Apparao', year: 1892, language: 'te',
+    genreLabel: 'Classic · Social Satire',
+    description: 'A sharp, funny satire on the bride-price custom, led by the charming conman Girisam.',
+    genres: { contemporary: 2, drama: 2, literary: 2, historical: 1 }, wiki: 'Kanyasulkam',
+  },
+  {
+    id: 'maidanam', title: 'Maidanam', nativeTitle: 'మైదానం', author: 'Gudipati Venkata Chalam', year: 1927, language: 'te',
+    genreLabel: 'Romance · Literary',
+    description: 'Rajeswari leaves her marriage for a love of her own choosing, and tells the story in her own fearless voice.',
+    genres: { romance: 3, psychological: 2, literary: 2, selfDiscovery: 1 }, wiki: 'Maidanam', noCover: true,
+  },
+  {
+    id: 'asamardhuni-jeevayatra', title: 'Asamardhuni Jeevayatra', nativeTitle: 'అసమర్థుని జీవయాత్ర', author: 'Tripuraneni Gopichand', year: 1947, language: 'te',
+    genreLabel: 'Psychological Fiction',
+    description: "Sitaramarao, clever but unable to act, drifts through life. Often called Telugu's first psychological novel.",
+    genres: { psychological: 3, philosophy: 2, literary: 2 }, wiki: 'Asamardhuni_Jeevayatra', noCover: true,
+  },
+  {
+    id: 'chivaraku-migiledi', title: 'Chivaraku Migiledi', nativeTitle: 'చివరకు మిగిలేది', author: 'Buchi Babu', year: 1952, language: 'te',
+    genreLabel: 'Literary · Existential',
+    description: 'Dayanidhi searches for love and meaning, and asks what is truly left at the end of a life.',
+    genres: { psychological: 2, selfDiscovery: 2, literary: 3, philosophy: 1 }, wiki: 'Chivaraku_Migiledi', noCover: true,
+  },
+  {
+    id: 'amaravati-kathalu', title: 'Amaravati Kathalu', nativeTitle: 'అమరావతి కథలు', author: 'Satyam Sankaramanchi', year: 1978, language: 'te',
+    genreLabel: 'Short Stories · Village Life',
+    description: 'One hundred short, warm stories of ordinary people in the village of Amaravati, beside the Krishna river.',
+    genres: { relationships: 2, contemporary: 2, literary: 2, drama: 1 }, wiki: 'Amaravati_Kathalu', noCover: true,
+  },
 ]
 
 export const REGIONAL_MOVIES = [
@@ -191,6 +266,18 @@ export const REGIONAL_MOVIES = [
   { id: 'ratsasan', title: 'Ratsasan', nativeTitle: 'ராட்சசன்', year: 2018, language: 'ta', genreLabel: 'Psychological Thriller',
     description: 'A would-be filmmaker turned policeman uses his research into serial killers to track one down.',
     genres: { thriller: 3, mystery: 3, psychological: 2 }, wiki: 'Ratsasan' },
+  { id: 'anbe-sivam', title: 'Anbe Sivam', nativeTitle: 'அன்பே சிவம்', year: 2003, language: 'ta', genreLabel: 'Road Movie · Drama',
+    description: 'A cynical ad filmmaker and a scarred, warm-hearted stranger share a long, eventful journey home to Chennai.',
+    genres: { drama: 3, philosophy: 2, relationships: 2, adventure: 1 }, wiki: 'Anbe_Sivam' },
+  { id: 'kaithi', title: 'Kaithi', nativeTitle: 'கைதி', year: 2019, language: 'ta', genreLabel: 'Action Thriller',
+    description: 'A just-released prisoner, desperate to meet the daughter he has never seen, must survive one long night on the road.',
+    genres: { thriller: 3, adventure: 2, drama: 2 }, wiki: 'Kaithi_(2019_film)' },
+  { id: 'jai-bhim', title: 'Jai Bhim', nativeTitle: 'ஜெய் பீம்', year: 2021, language: 'ta', genreLabel: 'Courtroom Drama',
+    description: 'A lawyer takes up the case of a tribal woman whose husband disappeared from police custody. Based on a real case.',
+    genres: { drama: 3, mystery: 1, historical: 1, contemporary: 2 }, wiki: 'Jai_Bhim_(film)' },
+  { id: 'soorarai-pottru', title: 'Soorarai Pottru', nativeTitle: 'சூரரைப் போற்று', year: 2020, language: 'ta', genreLabel: 'Drama · Inspiration',
+    description: 'A village-born former air force officer sets out to build an airline that ordinary people can afford.',
+    genres: { drama: 3, selfDiscovery: 2, adventure: 1 }, wiki: 'Soorarai_Pottru' },
   // ── Telugu ──
   { id: 'baahubali', title: 'Baahubali: The Beginning', nativeTitle: 'బాహుబలి: ది బిగినింగ్', year: 2015, language: 'te', genreLabel: 'Epic Fantasy',
     description: 'A young man climbs a giant waterfall and discovers his royal past and a kingdom waiting for him.',
@@ -201,4 +288,16 @@ export const REGIONAL_MOVIES = [
   { id: 'jersey', title: 'Jersey', nativeTitle: 'జెర్సీ', year: 2019, language: 'te', genreLabel: 'Sports Drama',
     description: 'A failed cricketer returns to the game at thirty-six to buy his son a jersey.',
     genres: { drama: 3, selfDiscovery: 2 }, wiki: 'Jersey_(2019_film)' },
+  { id: 'rrr', title: 'RRR', nativeTitle: 'ఆర్ఆర్ఆర్', year: 2022, language: 'te', genreLabel: 'Epic · Action',
+    description: 'In 1920s India, two revolutionaries on opposite sides become fierce friends, before the truth tears them apart.',
+    genres: { adventure: 3, historical: 2, drama: 2 }, wiki: 'RRR' },
+  { id: 'mahanati', title: 'Mahanati', nativeTitle: 'మహానటి', year: 2018, language: 'te', genreLabel: 'Biopic · Drama',
+    description: 'The rise and heartbreak of Savitri, one of the greatest stars of South Indian cinema.',
+    genres: { drama: 3, historical: 2, romance: 1 }, wiki: 'Mahanati' },
+  { id: 'pelli-choopulu', title: 'Pelli Choopulu', nativeTitle: 'పెళ్ళి చూపులు', year: 2016, language: 'te', genreLabel: 'Romantic Comedy',
+    description: 'An aimless young man and an ambitious young woman meet at an arranged match, and start a food truck together.',
+    genres: { romance: 2, comedy: 2, selfDiscovery: 2 }, wiki: 'Pelli_Choopulu' },
+  { id: 'care-of-kancharapalem', title: 'C/o Kancharapalem', nativeTitle: 'కేరాఫ్ కంచరపాలెం', year: 2018, language: 'te', genreLabel: 'Romance · Drama',
+    description: 'Four love stories, from schoolkids to a man in his forties, unfold in one Visakhapatnam neighbourhood.',
+    genres: { romance: 3, relationships: 2, drama: 2 }, wiki: 'C/o_Kancharapalem' },
 ]
