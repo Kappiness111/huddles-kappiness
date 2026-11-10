@@ -1,6 +1,7 @@
 // Scoring-based personality + ranking engine (pure functions, no I/O).
 //
-// 1. Every quiz answer adds weights to 10 genre dimensions and 6 trait dimensions.
+// 1. Every quiz answer (This or That, plus the three Mind Lab scenarios) adds weights to the genre
+//    dimensions and 6 trait dimensions.
 // 2. Each dimension is normalised by the most it could score across the visitor's question set.
 // 3. Personality = best weighted affinity match.
 // 4. Items (API or curated) are ranked by cosine similarity between the attendee's genre
@@ -9,22 +10,26 @@
 //    quote the attendee's real choices.
 
 import { GENRES, TRAITS } from '../data/genres.js'
-import { QUESTION_SETS } from '../data/quiz.js'
+import { QUESTION_SETS, questionsFor } from '../data/quiz.js'
 import { PERSONALITIES } from '../data/personalities.js'
+import { mindLabQuestions } from '../data/mindlab.js'
 import { hashString } from './ids.js'
 
 const zero = (keys) => Object.fromEntries(keys.map((k) => [k, 0]))
+// This or That questions have sides a/b; Mind Lab scenarios have a–d.
+const sidesOf = (q) => ['a', 'b', 'c', 'd'].filter((k) => q[k])
 
 function maxPossible(questions, keys, field) {
   const max = zero(keys)
-  for (const q of questions) for (const k of keys) max[k] += Math.max(q.a[field][k] ?? 0, q.b[field][k] ?? 0)
+  for (const q of questions) for (const k of keys) max[k] += Math.max(...sidesOf(q).map((s) => q[s][field][k] ?? 0))
   return max
 }
-// Normalisation ceilings per question set (each visitor is scored only on their own set).
+// Normalisation ceilings per combination of questions (each visitor is scored only on their own).
 const MAX = new Map()
 function maxFor(questions) {
-  if (!MAX.has(questions)) MAX.set(questions, { genres: maxPossible(questions, GENRES, 'genres'), traits: maxPossible(questions, TRAITS, 'traits') })
-  return MAX.get(questions)
+  const key = questions.map((q) => q.id).join(',')
+  if (!MAX.has(key)) MAX.set(key, { genres: maxPossible(questions, GENRES, 'genres'), traits: maxPossible(questions, TRAITS, 'traits') })
+  return MAX.get(key)
 }
 
 /** Normalised (0–1) genre + trait scores, plus the answers behind each genre. */
@@ -38,7 +43,7 @@ export function buildProfile(answers, questions = QUESTION_SETS.A) {
     const opt = q[side]
     for (const [k, v] of Object.entries(opt.genres)) {
       raw.genres[k] += v
-      drivers[k].push({ questionId: q.id, side, weight: v })
+      drivers[k].push({ questionId: q.id, side, weight: v, labelKey: `${q.labelPrefix ?? `quiz.${q.id}`}.${side}.label` })
     }
     for (const [k, v] of Object.entries(opt.traits)) raw.traits[k] += v
   }
@@ -94,18 +99,42 @@ export function tasteScore(profile, personality, itemGenres) {
 }
 
 /**
- * Orders scored candidates. Near-ties (within 0.025) are broken by a hash of the session id so
- * identical answers can still yield different, equally good picks — never pure randomness.
+ * Orders scored candidates. The strongest few (up to 5, within 0.08 of the best) are rotated by a
+ * hash of the session id, so identical answers can still yield different, equally good picks:
+ * never pure randomness, and never a weak match pushed to the front.
  */
 export function orderCandidates(scored, seed) {
   const sorted = [...scored].sort((a, b) => b.score - a.score)
   if (sorted.length < 2) return sorted.map((s) => s.item)
   const top = sorted[0].score
-  const ties = sorted.filter((s) => top - s.score <= 0.025)
+  const ties = sorted.filter((s) => top - s.score <= 0.08).slice(0, 5)
   const rest = sorted.slice(ties.length)
   const h = hashString(seed)
   const rotated = ties.map((_, i) => ties[(i + h) % ties.length])
   return [...rotated, ...rest].map((s) => s.item)
+}
+
+/**
+ * Gentle variety for mixed-language lists: keeps the first pick, then re-orders the next ones so
+ * the same language (and, for watch picks, the same format) doesn't fill every slot. Each item
+ * already chosen in a language costs the next one 0.05 of match score, so a clearly better match
+ * still wins. Only the top `window` items are touched.
+ */
+export function diversify(items, window = 16) {
+  if (items.length < 3) return items
+  const head = items.slice(0, window)
+  const out = [head.shift()]
+  const seen = (key, value) => out.filter((x) => x[key] === value).length
+  while (head.length) {
+    let best = 0
+    let bestScore = -Infinity
+    head.forEach((x, i) => {
+      const s = (x.match ?? 0) - 0.05 * seen('language', x.language) - 0.04 * seen('format', x.format)
+      if (s > bestScore) [best, bestScore] = [i, s]
+    })
+    out.push(head.splice(best, 1)[0])
+  }
+  return [...out, ...items.slice(window)]
 }
 
 /** Genres an item shares most strongly with the attendee (for "why it matches"). */
@@ -123,7 +152,9 @@ export function answersBehind(profile, genre, n = 2) {
   return (profile.drivers[genre] ?? []).slice(0, n)
 }
 
-export function computeResult({ answers, quizSet = 'A' }) {
-  const profile = buildProfile(answers, QUESTION_SETS[quizSet] ?? QUESTION_SETS.A)
+export function computeResult({ answers, quizSet = 'A', mindLab }) {
+  const lab = mindLabQuestions(mindLab?.picks, mindLab?.responses)
+  const questions = [...questionsFor(quizSet), ...lab.questions]
+  const profile = buildProfile({ ...answers, ...lab.answers }, questions)
   return { profile, personality: pickPersonality(profile), interests: topGenres(profile, 3) }
 }

@@ -61,6 +61,7 @@ async function openLibraryCover(title, author) {
 
 // Order: pinned Open Library cover → Wikipedia page → Open Library search.
 async function bookCover(book) {
+  if (book.noCover) throw new Error('marked noCover (no verified cover); the app shows a typographic cover')
   if (book.coverId) return `https://covers.openlibrary.org/b/id/${book.coverId}-L.jpg`
   const title = book.search?.title ?? book.title
   const author = book.search?.author ?? book.author
@@ -98,4 +99,4 @@ async function run(kind, items, resolve) {
 }
 
 await run('books', BOOKS, bookCover)
-await run('movies', MOVIES, (m) => wikiImage(m.wiki))
+await run('movies', MOVIES.filter((m) => !m.noCover), (m) => wikiImage(m.wiki))

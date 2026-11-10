@@ -59,6 +59,8 @@ r = await tryq(`select public.claim_submission_email('11111111-1111-4111-8111-11
 ok(r.error?.includes('permission denied'), 'anon cannot call claim_submission_email')
 r = await tryq(`select public.purge_old_submissions()`)
 ok(r.error?.includes('permission denied'), 'anon cannot call purge_old_submissions')
+r = await tryq(`select public.recent_recommendations(10) as v`)
+ok(!r.error && JSON.stringify(r.rows?.[0]?.v) === '{"book":["Randamoozham"],"movie":["Premam"]}', `anon gets recent titles only: ${r.error ?? JSON.stringify(r.rows?.[0]?.v)}`)
 await db.exec('reset role')
 
 // Trigger forced the server-managed fields.

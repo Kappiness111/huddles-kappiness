@@ -1,4 +1,5 @@
-// Assigns each visitor one predefined question set (A, B, C, …).
+// Assigns each visitor their own mix of This-or-That questions: for each of the 10 slots, one
+// question from one of the 8 parallel sets (see questionsFor in data/quiz.js).
 //
 // Every phone that scans the QR code runs its own copy of the app, so the choice is made locally
 // with a cryptographically random pick — visitors starting at the same moment are spread across
@@ -8,7 +9,7 @@
 // Only the set letter is kept in this tab's sessionStorage, so a refresh keeps the same questions.
 // No personal data is stored.
 
-import { SET_IDS } from '../data/quiz.js'
+import { SET_IDS, SLOT_COUNT, isQuizCode } from '../data/quiz.js'
 
 const KEY = 'kappiness.quizSet'
 
@@ -18,21 +19,27 @@ function randomIndex(n) {
   return b[0] % n
 }
 
-/** The set for this tab's current visitor: the stored one, or a new random pick. */
+/** The mix for this tab's current visitor: the stored one (after a refresh), or a new random mix. */
 export function currentQuizSet() {
   try {
     const stored = sessionStorage.getItem(KEY)
-    if (SET_IDS.includes(stored)) return stored
+    if (isQuizCode(stored) && stored.length === SLOT_COUNT) return stored
   } catch {
     /* storage blocked — fall through to a fresh pick */
   }
   return nextQuizSet()
 }
 
-/** A new visitor: pick a set different from `previous` (so back-to-back visitors differ). */
-export function nextQuizSet(previous) {
-  const pool = SET_IDS.filter((s) => s !== previous)
-  const set = pool[randomIndex(pool.length)]
+/**
+ * A new visitor: a fresh random mix. Every slot avoids the previous visitor's question, so
+ * back-to-back visitors on this device never share a single question.
+ */
+export function nextQuizSet(previous = '') {
+  const prev = previous.length === 1 ? previous.repeat(SLOT_COUNT) : previous
+  const set = Array.from({ length: SLOT_COUNT }, (_, i) => {
+    const pool = SET_IDS.filter((s) => s !== prev[i])
+    return pool[randomIndex(pool.length)]
+  }).join('')
   try {
     sessionStorage.setItem(KEY, set)
   } catch {

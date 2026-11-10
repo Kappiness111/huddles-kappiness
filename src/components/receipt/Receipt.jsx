@@ -8,6 +8,9 @@ import { LANGUAGE_NATIVE } from '../../i18n/languages.js'
 import { LOGO_SRC } from '../../lib/media.js'
 import { formatReceiptDate } from '../../lib/receiptDate.js'
 
+const INSTAGRAM_URL = 'https://www.instagram.com/Kappi_ness/'
+const INSTAGRAM_HANDLE = '@kappi_ness'
+
 function Row({ k, v }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5em', fontSize: '0.88em' }}>
@@ -24,7 +27,7 @@ function Pick({ label, item, meta, t }) {
   return (
     <div style={{ display: 'flex', gap: '0.9em', alignItems: 'flex-start', minWidth: 0 }}>
       {item.cover && (
-        <img src={item.cover} alt="" loading="eager" referrerPolicy="no-referrer" style={{ width: '4.2em', height: '6.3em', borderRadius: '0.2em', flexShrink: 0, boxShadow: '0 0.4em 0.8em -0.4em rgba(36,25,21,.5)' }} />
+        <img src={item.cover} alt="" loading="eager" referrerPolicy="no-referrer" style={{ width: '4.2em', height: '6.3em', objectFit: 'cover', borderRadius: '0.2em', flexShrink: 0, boxShadow: '0 0.4em 0.8em -0.4em rgba(36,25,21,.5)' }} />
       )}
       <div style={{ minWidth: 0 }}>
         <p className="rcpt-label">{label}</p>
@@ -52,7 +55,6 @@ export default function Receipt({ data, variant = 'thermal', notchBg }) {
   const a5 = variant === 'a5'
   const first = attendee.name.split(' ')[0]
   const date = formatReceiptDate(completedAt, uiLang)
-  const qrValue = `KAPPINESS|${receiptNo}|${p.id}|${book?.id ?? ''}|${movie?.id ?? ''}`
 
   return (
     <article className={`rcpt ${a5 ? 'is-a5' : ''}`} style={notchBg ? { '--notch-bg': notchBg } : undefined} aria-label={t('receipt.title')}>
@@ -92,7 +94,7 @@ export default function Receipt({ data, variant = 'thermal', notchBg }) {
         <div className="rcpt-notch" />
         <section style={{ display: 'grid', gridTemplateColumns: a5 ? '1fr 1fr' : '1fr', gap: a5 ? '1.4em' : '1.1em' }}>
           <Pick t={t} label={t('receipt.read')} item={book} meta={book?.author} />
-          <Pick t={t} label={t('receipt.watch')} item={movie} meta={movie?.year ? String(movie.year) : null} />
+          <Pick t={t} label={t('receipt.watch')} item={movie} meta={[movie?.year, movie?.format === 'series' ? t('movie.series') : null].filter(Boolean).join(' · ') || null} />
         </section>
 
         <div className="rcpt-notch" />
@@ -102,13 +104,14 @@ export default function Receipt({ data, variant = 'thermal', notchBg }) {
           </p>
           <div style={{ display: 'flex', gap: '0.9em', alignItems: 'center', ...(a5 ? { borderLeft: '1px dashed var(--rule)', paddingLeft: '1.4em' } : {}) }}>
             <div style={{ background: '#fff', padding: '0.3em', borderRadius: '0.3em', flexShrink: 0, lineHeight: 0 }}>
-              <QRCodeSVG value={qrValue} size={256} level="M" bgColor="#ffffff" fgColor="#33231F" style={{ width: '4.4em', height: '4.4em' }} title={receiptNo} />
+              <QRCodeSVG value={INSTAGRAM_URL} size={256} level="M" bgColor="#ffffff" fgColor="#33231F" style={{ width: '4.8em', height: '4.8em' }} title={t('receipt.instagram')} />
             </div>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <p className="rcpt-display" style={{ fontSize: '1em' }} lang="en">
-                {t('receipt.footer')}
+              <p className="rcpt-label">{t('receipt.instagram')}</p>
+              <p className="rcpt-display" style={{ fontSize: '1.05em', marginTop: '0.15em' }}>
+                {INSTAGRAM_HANDLE}
               </p>
-              <p style={{ fontSize: '0.76em', marginTop: '0.3em', color: 'var(--soft)' }}>{t('receipt.thanks')}</p>
+              <p style={{ fontSize: '0.76em', marginTop: '0.3em', color: 'var(--soft)' }}>{t('receipt.footer')}</p>
             </div>
             {!a5 && <Cup mood="smile" steam={false} float={false} className="w-[2.8em] shrink-0" />}
           </div>

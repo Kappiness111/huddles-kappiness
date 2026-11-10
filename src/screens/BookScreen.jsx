@@ -8,7 +8,7 @@ import { BOOK_LANGUAGES, LANGUAGE_NATIVE } from '../i18n/languages.js'
 import { whyText } from '../lib/why.js'
 
 export default function BookScreen() {
-  const { state, nextRec, go, loadRec } = useExperience()
+  const { state, reactRec, go, loadRec } = useExperience()
   const i18n = useI18n()
   const { t } = i18n
   const rec = state.recs.book
@@ -36,6 +36,7 @@ export default function BookScreen() {
           <RecDetail
             kind="book"
             rec={rec}
+            profile={state.result.profile}
             item={book}
             accent="#A65D36"
             kicker={t('book.kicker')}
@@ -51,7 +52,7 @@ export default function BookScreen() {
             why={whyText(i18n, state.result.profile, book)}
             langOptions={BOOK_LANGUAGES}
             onLang={(l) => loadRec('book', l)}
-            onAnother={() => nextRec('book')}
+            onReact={(reaction, id) => reactRec('book', reaction, id)}
             primary={<NextButton onClick={() => go('movie')}>{t('book.next')}</NextButton>}
             links={book.link && <ExternalLinkText href={book.link}>{t('book.preview')}</ExternalLinkText>}
           />

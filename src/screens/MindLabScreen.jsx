@@ -1,14 +1,16 @@
-// THE MIND LAB — the only thinking game. Intro → 3 challenges (one at a time) → completion.
-// No scores, no labels; nothing here affects the recommendations.
-import { useState } from 'react'
+// THE MIND LAB: intro → 3 personality scenarios (one at a time) → completion.
+// No right answers and no scores. Each choice shows what it says about the visitor, and its
+// genre weights feed the recommendation profile alongside This or That.
+import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, Check } from 'lucide-react'
 import TopBar from '../components/layout/TopBar.jsx'
 import Button from '../components/ui/Button.jsx'
 import Cup from '../illustrations/Cup.jsx'
 import Motif from '../illustrations/Motif.jsx'
-import { CHALLENGES, findDecision, findPattern, findPerspective, patternAnswer } from '../data/mindlab.js'
+import { CHALLENGES, OPTION_KEYS, findMindLab } from '../data/mindlab.js'
 import { useExperience } from '../state/ExperienceContext.jsx'
+import { hashString } from '../lib/ids.js'
 import { useI18n } from '../i18n/index.jsx'
 
 const LETTERS = ['A', 'B', 'C', 'D']
@@ -18,7 +20,7 @@ const LAB_BG = {
     'linear-gradient(rgb(245 235 221 / 0.045) 1px, transparent 1px), linear-gradient(90deg, rgb(245 235 221 / 0.045) 1px, transparent 1px)',
   backgroundSize: '28px 28px',
 }
-const MOTIF = { perspective: 'orbit', pattern: 'lattice', decision: 'door' }
+const MOTIF = { inner: 'orbit', instinct: 'spiral', decision: 'door' }
 
 export default function MindLabScreen() {
   const { state, recordMindLab, completeMindLab, go } = useExperience()
@@ -41,7 +43,7 @@ export default function MindLabScreen() {
         {stage === 'intro' && (
           <motion.main key="intro" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mx-auto flex min-h-[calc(100dvh-64px)] max-w-3xl flex-col justify-center px-5 pb-12 pt-6 sm:px-8">
             <p className="eyebrow text-amber">{t('mindlab.kicker')}</p>
-            <h1 className="display mt-3 text-[clamp(2.8rem,12vw,6rem)] [&:lang(ml)]:text-[clamp(2.2rem,9vw,4.6rem)]">{t('mindlab.title')}</h1>
+            <h1 className="display mt-3 text-[clamp(2.8rem,12vw,6rem)]">{t('mindlab.title')}</h1>
             <p className="display mt-3 text-[clamp(1.3rem,4.6vw,2rem)] italic text-cream/85">{t('mindlab.tagline')}</p>
             <p className="mt-5 max-w-lg text-cream/65">{t('mindlab.intro')}</p>
             <ol className="mt-9 border-t border-cream/15">
@@ -69,6 +71,7 @@ export default function MindLabScreen() {
             index={i}
             kind={CHALLENGES[i]}
             itemId={state.mindLab.picks[CHALLENGES[i]]}
+            seed={state.sessionId}
             onRecord={(r) => recordMindLab(CHALLENGES[i], r)}
             onNext={next}
           />
@@ -79,7 +82,7 @@ export default function MindLabScreen() {
             <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 120, damping: 14 }}>
               <Cup mood="joy" className="w-24" />
             </motion.div>
-            <h1 className="display mt-8 text-[clamp(2.1rem,8.5vw,4rem)] [&:lang(ml)]:text-[clamp(1.55rem,6vw,3rem)]">{t('mindlab.doneTitle')}</h1>
+            <h1 className="display mt-8 text-[clamp(2.1rem,8.5vw,4rem)]">{t('mindlab.doneTitle')}</h1>
             <p className="display mt-4 text-[clamp(1.15rem,4vw,1.6rem)] italic text-cream/75">{t('mindlab.doneSub')}</p>
             <Button variant="accent" size="lg" onClick={() => go('quiz')} className="mt-10 w-full sm:w-auto sm:px-10">
               {t('mindlab.doneCta')}
@@ -92,35 +95,19 @@ export default function MindLabScreen() {
   )
 }
 
-function Challenge({ index, kind, itemId, onRecord, onNext }) {
+function Challenge({ index, kind, itemId, seed, onRecord, onNext }) {
   const { t } = useI18n()
   const [choice, setChoice] = useState(null)
   const [submitted, setSubmitted] = useState(false)
-
-  let options, situation, question, considered, answer, base
-  if (kind === 'pattern') {
-    const p = findPattern(itemId)
-    answer = patternAnswer(p)
-    options = p.options.map(String)
-    question = t('mindlab.pattern.question')
-    base = p
-  } else {
-    const item = kind === 'perspective' ? findPerspective(itemId) : findDecision(itemId)
-    const k = `mindlab.${kind}.${itemId}`
-    options = item.options
-    situation = t(`${k}.situation`)
-    question = t(`${k}.question`)
-    considered = item.considered
-  }
-  const label = (o) => (kind === 'pattern' ? o : t(`mindlab.${kind}.${itemId}.${o}.label`))
+  const item = findMindLab(kind, itemId)
+  const k = `mindlab.${kind}.${itemId}`
+  const question = t(`${k}.question`)
+  // Each visitor sees the four answers in their own order (stable for the visit).
+  const order = useMemo(() => shuffled(OPTION_KEYS, hashString(`${seed}:${itemId}`)), [seed, itemId])
 
   const submit = () => {
     setSubmitted(true)
-    onRecord(
-      kind === 'pattern'
-        ? { id: itemId, choice: Number(choice), correct: Number(choice) === answer }
-        : { id: itemId, choice },
-    )
+    onRecord({ id: itemId, choice })
   }
 
   const total = CHALLENGES.length
@@ -130,8 +117,8 @@ function Challenge({ index, kind, itemId, onRecord, onNext }) {
       <div className="flex items-center justify-between gap-4">
         <p className="eyebrow text-amber">{t('mindlab.challenge', { n: String(index + 1).padStart(2, '0'), total: String(total).padStart(2, '0') })}</p>
         <div className="flex w-28 gap-1.5" aria-hidden="true">
-          {Array.from({ length: total }, (_, k) => (
-            <span key={k} className={`h-0.5 flex-1 ${k < index ? 'bg-amber' : k === index ? 'bg-cream' : 'bg-cream/20'}`} />
+          {Array.from({ length: total }, (_, n) => (
+            <span key={n} className={`h-0.5 flex-1 ${n < index ? 'bg-amber' : n === index ? 'bg-cream' : 'bg-cream/20'}`} />
           ))}
         </div>
       </div>
@@ -144,26 +131,13 @@ function Challenge({ index, kind, itemId, onRecord, onNext }) {
         <Motif name={MOTIF[kind]} accent="#D9A45B" className="w-14 shrink-0 text-cream/50 sm:w-20" />
       </div>
 
-      {situation && <p className="mt-6 max-w-2xl text-lg text-cream/80">{situation}</p>}
-      {kind === 'pattern' && (
-        <p className="display mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[clamp(2.2rem,9vw,3.6rem)] tabular-nums">
-          {base.seq.map((n, k) => (
-            <span key={k} className="text-cream">
-              {n}
-              <span className="text-cream/30">,</span>
-            </span>
-          ))}
-          <span className="italic text-amber">{submitted ? answer : '?'}</span>
-        </p>
-      )}
+      <p className="mt-6 max-w-2xl text-lg text-cream/80">{t(`${k}.situation`)}</p>
       <h2 className="display mt-6 text-[clamp(1.5rem,5.6vw,2.3rem)]">{question}</h2>
 
       {/* Options as a ruled list, not cards */}
-      <div className={`mt-6 border-t border-cream/15 ${kind === 'pattern' ? 'grid grid-cols-2 sm:grid-cols-4' : ''}`} role="radiogroup" aria-label={question}>
-        {options.map((o, k) => {
+      <div className="mt-6 border-t border-cream/15" role="radiogroup" aria-label={question}>
+        {order.map((o, n) => {
           const on = choice === o
-          const isAnswer = kind === 'pattern' && Number(o) === answer
-          const isConsidered = considered === o
           return (
             <button
               key={o}
@@ -172,16 +146,12 @@ function Challenge({ index, kind, itemId, onRecord, onNext }) {
               aria-checked={on}
               disabled={submitted}
               onClick={() => setChoice(o)}
-              className={`group relative flex min-h-16 w-full items-center gap-4 border-b border-cream/15 px-1 py-3.5 text-left transition-colors ${
-                kind === 'pattern' ? 'even:border-l sm:border-l sm:first:border-l-0' : ''
-              } ${on ? 'bg-cream/[0.07]' : 'hover:bg-cream/[0.04]'} ${submitted && !on && !isAnswer && !isConsidered ? 'opacity-45' : ''}`}
+              className={`group relative flex min-h-16 w-full items-center gap-4 border-b border-cream/15 px-1 py-3.5 text-left transition-colors ${on ? 'bg-cream/[0.07]' : 'hover:bg-cream/[0.04]'} ${submitted && !on ? 'opacity-45' : ''}`}
             >
               {on && <motion.span layoutId={`bar-${kind}`} className="absolute inset-y-0 left-0 w-0.5 bg-amber" />}
-              <span className={`pl-3 font-mono text-xs ${on ? 'text-amber' : 'text-cream/45'}`}>{LETTERS[k]}</span>
-              <span className={`flex-1 ${kind === 'pattern' ? 'display text-2xl tabular-nums' : 'text-[1.02rem] leading-snug'}`}>{label(o)}</span>
-              {submitted && (isAnswer || (on && kind !== 'pattern')) && (
-                <Check className={`mr-2 h-4 w-4 shrink-0 ${isAnswer ? 'text-amber' : 'text-cream/60'}`} aria-hidden="true" />
-              )}
+              <span className={`pl-3 font-mono text-xs ${on ? 'text-amber' : 'text-cream/45'}`}>{LETTERS[n]}</span>
+              <span className="flex-1 text-[1.02rem] leading-snug">{t(`${k}.${o}.label`)}</span>
+              {submitted && on && <Check className="mr-2 h-4 w-4 shrink-0 text-amber" aria-hidden="true" />}
             </button>
           )
         })}
@@ -196,7 +166,24 @@ function Challenge({ index, kind, itemId, onRecord, onNext }) {
           </motion.div>
         ) : (
           <motion.div key="fb" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="mt-8" role="status">
-            <Feedback kind={kind} itemId={itemId} choice={choice} answer={answer} considered={considered} />
+            <div className="border-l-2 border-amber pl-5">
+              <p className="eyebrow text-amber">{t('mindlab.youNote')}</p>
+              <p className="mt-2 max-w-2xl text-[1.05rem] text-cream/90">{t(`${k}.${choice}.note`)}</p>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="eyebrow mr-1 text-cream/55">{t('mindlab.adds')}</span>
+                {topGenres(item[choice].genres).map((g, n) => (
+                  <motion.span
+                    key={g}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.25 + n * 0.1, type: 'spring', stiffness: 380, damping: 20 }}
+                    className="rounded-full px-3 py-1 text-sm font-semibold text-amber ring-1 ring-inset ring-amber/70"
+                  >
+                    + {t(`genres.${g}`)}
+                  </motion.span>
+                ))}
+              </div>
+            </div>
             <Button variant="light" size="lg" onClick={onNext} className="mt-8 w-full sm:w-auto sm:px-10" autoFocus>
               {t('mindlab.continue')}
               <ArrowRight className="h-5 w-5" aria-hidden="true" />
@@ -208,30 +195,20 @@ function Challenge({ index, kind, itemId, onRecord, onNext }) {
   )
 }
 
-function Feedback({ kind, itemId, choice, answer, considered }) {
-  const { t } = useI18n()
-  if (kind === 'pattern') {
-    const right = Number(choice) === answer
-    return (
-      <div className="border-l-2 border-amber pl-5">
-        <p className="display text-2xl">{right ? t('mindlab.pattern.correct') : t('mindlab.pattern.close')}</p>
-        {!right && <p className="mt-1 font-semibold text-amber">{t('mindlab.pattern.answerIs', { answer })}</p>}
-        <p className="mt-3 max-w-2xl text-cream/75">{t(`mindlab.pattern.explain.${itemId}`)}</p>
-      </div>
-    )
+/** Deterministic Fisher–Yates shuffle from a 32-bit seed. */
+function shuffled(list, seed) {
+  const out = [...list]
+  let h = seed || 1
+  for (let i = out.length - 1; i > 0; i--) {
+    h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0
+    const j = h % (i + 1)
+    ;[out[i], out[j]] = [out[j], out[i]]
   }
-  const k = `mindlab.${kind}.${itemId}`
-  const heading = kind === 'decision' ? t('mindlab.decision.note') : choice === considered ? t('mindlab.perspective.considered') : t('mindlab.perspective.another')
-  return (
-    <div className="border-l-2 border-amber pl-5">
-      <p className="eyebrow text-amber">{heading}</p>
-      <p className="mt-2 max-w-2xl text-[1.05rem] text-cream/90">{t(`${k}.${choice}.note`)}</p>
-      {kind === 'perspective' && choice !== considered && (
-        <p className="mt-3 max-w-2xl text-cream/70">
-          <span className="font-semibold text-cream/85">{t(`${k}.${considered}.label`)}</span> {t(`${k}.${considered}.note`)}
-        </p>
-      )}
-      <p className="display mt-4 max-w-2xl text-lg italic text-cream/75">{kind === 'decision' ? t('mindlab.decision.explain') : t(`${k}.explain`)}</p>
-    </div>
-  )
+  return out
 }
+
+const topGenres = (genres) =>
+  Object.entries(genres)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([g]) => g)

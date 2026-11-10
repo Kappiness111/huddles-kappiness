@@ -45,15 +45,20 @@ export function isBlocked(...texts) {
   return texts.some((t) => t && (BLOCKED.test(t) || NON_FICTION.test(t)))
 }
 
-/** Genre vector from metadata text, plus a boost for the genre we searched for. */
-export function genresFromText(texts, searchedGenre) {
+// Not a story to hand someone: summaries, study aids, bundles, colouring and blank books.
+const NOT_A_STORY = /\b(summary of|summary & analysis|study guide|sparknotes|cliffsnotes|book analysis|workbook|box(ed)? set|omnibus|books? \d+\s*[-–]\s*\d+|colou?ring book|journal|notebook|puzzle book|quiz book)\b/i
+
+export const isNotAStory = (title = '') => NOT_A_STORY.test(title) || /\s\/\s/.test(title)
+
+/** Genre vector from metadata text, plus a boost for the genre(s) we searched for. */
+export function genresFromText(texts, searched) {
   const hay = texts.filter(Boolean).join(' | ').toLowerCase()
   const v = Object.fromEntries(GENRES.map((g) => [g, 0]))
   for (const [g, words] of Object.entries(KEYWORDS)) {
     for (const w of words) if (hay.includes(w)) v[g] += 1
     v[g] = Math.min(v[g], 3)
   }
-  if (searchedGenre) v[searchedGenre] = Math.max(v[searchedGenre], 2)
+  for (const g of [].concat(searched ?? [])) v[g] = Math.max(v[g], 2)
   return v
 }
 

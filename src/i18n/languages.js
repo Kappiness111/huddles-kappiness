@@ -1,12 +1,7 @@
-// Interface languages (fully translated UI) and recommendation languages (what language the
-// book / movie itself is in). The two are independent. To add a UI language: add a locale file
-// in ./locales, register it in ./index.jsx and add it here.
+// The interface is English-only. Recommendations come in English, Malayalam, Hindi, Tamil and Telugu:
+// by default the best matches across all five, or one language via the switch on the book/film screens.
 
-export const UI_LANGUAGES = [
-  { code: 'en', native: 'English', htmlLang: 'en', tmdb: 'en-US' },
-  { code: 'ml', native: 'മലയാളം', htmlLang: 'ml', tmdb: 'ml-IN' },
-  { code: 'hi', native: 'हिंदी', htmlLang: 'hi', tmdb: 'hi-IN' },
-]
+export const UI_LANGUAGES = [{ code: 'en', native: 'English', htmlLang: 'en', tmdb: 'en-US' }]
 
 // Native names for any language code we may show (recommendation languages, API metadata).
 export const LANGUAGE_NATIVE = {
@@ -27,7 +22,8 @@ export const LANGUAGE_NATIVE = {
 // ISO 639-1 → Open Library's MARC (ISO 639-2/B) codes.
 export const OPEN_LIBRARY_CODE = { en: 'eng', ml: 'mal', hi: 'hin', ta: 'tam', te: 'tel', kn: 'kan', bn: 'ben', mr: 'mar' }
 
-export const BOOK_LANGUAGES = ['en', 'ml', 'hi', 'ta', 'te']
-export const MOVIE_LANGUAGES = ['ml', 'en', 'hi', 'ta', 'te']
+// 'any' (the default) = the best matches across all five, chosen by the visitor's personality.
+export const BOOK_LANGUAGES = ['any', 'en', 'ml', 'hi', 'ta', 'te']
+export const MOVIE_LANGUAGES = ['any', 'en', 'ml', 'hi', 'ta', 'te']
 
 export const DEFAULT_UI_LANGUAGE = 'en'

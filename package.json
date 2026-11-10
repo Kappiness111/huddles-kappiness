@@ -9,8 +9,6 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "fetch-media": "node scripts/fetch-media.mjs",
-    "verify-mindlab": "node scripts/verify-mindlab.mjs",
-    "check-locales": "node scripts/check-locales.mjs",
     "test:sql": "node scripts/test-sql.mjs",
     "test:backend": "node scripts/test-email-backend.mjs",
     "test": "npm run test:sql && npm run test:backend"

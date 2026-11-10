@@ -4,7 +4,6 @@ import Landscape from '../illustrations/Landscape.jsx'
 import Cup from '../illustrations/Cup.jsx'
 import Logo from '../components/ui/Logo.jsx'
 import Button from '../components/ui/Button.jsx'
-import { LanguageSegments } from '../components/ui/LanguagePicker.jsx'
 import { useExperience } from '../state/ExperienceContext.jsx'
 import { useI18n } from '../i18n/index.jsx'
 import { ESTIMATED_MINUTES } from '../state/steps.js'
@@ -16,7 +15,7 @@ const rise = (i) => ({
 })
 
 export default function WelcomeScreen() {
-  const { state, go, setLang } = useExperience()
+  const { go } = useExperience()
   const { t } = useI18n()
   const steps = t('welcome.steps')
 
@@ -54,12 +53,7 @@ export default function WelcomeScreen() {
             {t('welcome.about')}
           </motion.p>
 
-          <motion.div {...rise(4)} className="mt-7 max-w-md">
-            <p className="eyebrow mb-2 text-espresso/55">{t('lang.choose')}</p>
-            <LanguageSegments value={state.uiLang} onChange={setLang} label={t('lang.choose')} />
-          </motion.div>
-
-          <motion.div {...rise(5)} className="mt-7 flex max-w-md flex-col gap-4">
+          <motion.div {...rise(4)} className="mt-8 flex max-w-md flex-col gap-4">
             <Button size="lg" variant="accent" onClick={() => go('register')} className="w-full sm:w-auto sm:self-start sm:px-10">
               {t('welcome.cta')}
               <ArrowRight className="h-5 w-5" aria-hidden="true" />
