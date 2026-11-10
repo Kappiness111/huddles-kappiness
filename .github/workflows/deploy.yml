@@ -28,8 +28,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Only public, browser-safe values belong here (anything VITE_ ships in the bundle).
+      # TMDB_READ_TOKEN and RESEND_API_KEY stay in Supabase Edge Function secrets.
       - name: Build
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_TMDB_ENABLED: ${{ vars.VITE_TMDB_ENABLED || 'true' }}
+          VITE_GOOGLE_BOOKS_API_KEY: ${{ vars.VITE_GOOGLE_BOOKS_API_KEY }}
+          VITE_EMAIL_ENABLED: ${{ vars.VITE_EMAIL_ENABLED }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
