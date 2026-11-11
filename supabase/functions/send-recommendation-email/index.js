@@ -25,7 +25,6 @@ const rpc = async (fn, args) => {
   return data
 }
 
-// Send the prepared receipt email through Google Apps Script.
 const sendWithAppsScript = async (msg) => {
   const scriptUrl = env('APPS_SCRIPT_URL')
   const secret = env('APPS_SCRIPT_SECRET')
@@ -41,23 +40,41 @@ const sendWithAppsScript = async (msg) => {
     },
     body: JSON.stringify({
       token: secret,
+
+      // Email content
       to: msg.to,
       subject: msg.subject,
       html: msg.html,
       text: msg.text,
+
+      // Visitor and receipt details
+      submissionId: msg.submissionId,
+      receiptNo: msg.receiptNo,
+      name: msg.name,
+      phone: msg.phone,
+      date: msg.date,
+      story: msg.story,
+      storyIdentity: msg.storyIdentity,
+      recommendedBook: msg.recommendedBook,
+      recommendedMovie: msg.recommendedMovie,
+
+      // Duplicate protection
       idempotencyKey: msg.idempotencyKey,
     }),
   })
 
-  const result = await response.json()
+  const result = await response.json().catch(() => ({}))
 
   if (!response.ok || result.success !== true) {
     throw new Error(
-      result.error || 'Google Apps Script failed to send the email',
+      result.error || `Apps Script request failed: ${response.status}`,
     )
   }
 
-  return result
+  return {
+    ok: true,
+    id: msg.idempotencyKey,
+  }
 }
 
 Deno.serve(
