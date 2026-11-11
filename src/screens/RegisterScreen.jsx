@@ -8,7 +8,7 @@ import Motif from '../illustrations/Motif.jsx'
 import { useExperience } from '../state/ExperienceContext.jsx'
 import { useI18n } from '../i18n/index.jsx'
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
 // Letters in any script, including Malayalam/Hindi
 const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M} .'-]*$/u
