@@ -9,7 +9,7 @@ import { isEmailConfigured } from '../services/config.js'
 import { DEFAULT_UI_LANGUAGE } from '../i18n/languages.js'
 import { currentQuizSet, nextQuizSet } from '../lib/questionSet.js'
 import { currentMindLabPicks, nextMindLabPicks } from '../lib/mindLabSession.js'
-import { rememberPicks } from '../services/recentPicks.js'
+import { recentIdentities, rememberIdentity, rememberPicks, warmRecent } from '../services/recentPicks.js'
 
 const EMPTY_REC = { status: 'idle', items: [], index: 0, requested: null, actual: null, offline: false, wrapped: false, seen: [], disliked: [], loved: null }
 const FINDERS = { book: findBooks, movie: findMovies }
@@ -99,7 +99,7 @@ function reducer(state, a) {
     case 'QUIZ_ANSWER':
       return { ...state, quizAnswers: { ...state.quizAnswers, [a.id]: a.side } }
     case 'FINISH_QUIZ':
-      return { ...state, result: computeResult({ answers: state.quizAnswers, quizSet: state.quizSet, mindLab: state.mindLab }), step: 'reveal' }
+      return { ...state, result: computeResult({ answers: state.quizAnswers, quizSet: state.quizSet, mindLab: state.mindLab, avoid: a.avoid }), step: 'reveal' }
     case 'SET_PREF':
       return { ...state, prefs: { ...state.prefs, [a.kind]: a.lang } }
     case 'REC':
@@ -254,7 +254,8 @@ export function ExperienceProvider({ children }) {
       recordMindLab: (challenge, response) => dispatch({ type: 'MINDLAB_RESPONSE', challenge, response }),
       completeMindLab: () => dispatch({ type: 'MINDLAB_DONE' }),
       answerQuiz: (id, side) => dispatch({ type: 'QUIZ_ANSWER', id, side }),
-      finishQuiz: () => dispatch({ type: 'FINISH_QUIZ' }),
+      // Recent identities are read here (not in the reducer) so the reducer stays pure.
+      finishQuiz: () => dispatch({ type: 'FINISH_QUIZ', avoid: recentIdentities() }),
       loadRecs: (prefs) => Promise.all([loadRec('book', prefs.book), loadRec('movie', prefs.movie)]),
       loadRec,
       /** 'love' keeps the pick; 'seen' (already read/watched) and 'nope' move on; 'pick' jumps to `id`. */
@@ -286,6 +287,19 @@ export function ExperienceProvider({ children }) {
     persist()
     if (s.attendee.consentEmail) sendEmail()
   }, [state.step, state.result, state.sessionId, persist, sendEmail])
+
+  // Fetch the shared "recently given" lists while the visitor plays, so they're ready at the reveal.
+  useEffect(() => {
+    if (state.step === 'mindlab') warmRecent()
+  }, [state.step])
+
+  // Remember each visitor's identity so the next visitor gets a different one.
+  const identityFor = useRef(null)
+  useEffect(() => {
+    if (!state.result || identityFor.current === state.sessionId) return
+    identityFor.current = state.sessionId
+    rememberIdentity(state.result.personality.id)
+  }, [state.result, state.sessionId])
 
   const value = useMemo(() => ({ state, ...actions }), [state, actions])
   return <ExperienceContext.Provider value={value}>{children}</ExperienceContext.Provider>

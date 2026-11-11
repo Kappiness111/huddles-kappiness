@@ -1,5 +1,6 @@
 // The collectible story receipt — styled like a slip from an independent bookshop.
 // Presentational only. Sized in `em` (see .rcpt in index.css) so print.js can rescale it.
+import { useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import Cup from '../../illustrations/Cup.jsx'
 import Motif from '../../illustrations/Motif.jsx'
@@ -21,14 +22,26 @@ function Row({ k, v }) {
   )
 }
 
+const THUMB = { width: '4.2em', height: '6.3em', borderRadius: '0.2em', flexShrink: 0, boxShadow: '0 0.4em 0.8em -0.4em rgba(36,25,21,.5)' }
+
+/** Cover thumbnail; a missing or broken image becomes a small designed title tile (never a broken-image icon). */
+function Thumb({ src, title }) {
+  const [failed, setFailed] = useState(null)
+  if (!src || failed === src)
+    return (
+      <div aria-hidden="true" style={{ ...THUMB, background: 'var(--accent)', color: '#fcf7ef', padding: '0.45em', display: 'flex', alignItems: 'flex-end', overflow: 'hidden' }}>
+        <span className="rcpt-display" style={{ fontSize: '0.64em', lineHeight: 1.1, overflowWrap: 'anywhere', minWidth: 0 }}>{title}</span>
+      </div>
+    )
+  return <img src={src} alt="" loading="eager" referrerPolicy="no-referrer" onError={() => setFailed(src)} style={{ ...THUMB, objectFit: 'cover' }} />
+}
+
 function Pick({ label, item, meta, t }) {
   if (!item) return null
   const original = item.nativeTitle ?? (item.originalTitle && item.originalTitle !== item.title ? item.originalTitle : null)
   return (
     <div style={{ display: 'flex', gap: '0.9em', alignItems: 'flex-start', minWidth: 0 }}>
-      {item.cover && (
-        <img src={item.cover} alt="" loading="eager" referrerPolicy="no-referrer" style={{ width: '4.2em', height: '6.3em', objectFit: 'cover', borderRadius: '0.2em', flexShrink: 0, boxShadow: '0 0.4em 0.8em -0.4em rgba(36,25,21,.5)' }} />
-      )}
+      <Thumb src={item.cover} title={item.title} />
       <div style={{ minWidth: 0 }}>
         <p className="rcpt-label">{label}</p>
         <p className="rcpt-display" style={{ fontSize: '1.35em', marginTop: '0.2em' }}>{item.title}</p>
@@ -57,7 +70,7 @@ export default function Receipt({ data, variant = 'thermal', notchBg }) {
   const date = formatReceiptDate(completedAt, uiLang)
 
   return (
-    <article className={`rcpt ${a5 ? 'is-a5' : ''}`} style={notchBg ? { '--notch-bg': notchBg } : undefined} aria-label={t('receipt.title')}>
+    <article className={`rcpt ${a5 ? 'is-a5' : ''} ${variant === 'bookmark' ? 'is-bookmark' : ''}`} style={notchBg ? { '--notch-bg': notchBg } : undefined} aria-label={t('receipt.title')}>
       <div className="rcpt-inner">
         <header style={{ textAlign: 'center' }}>
           <img src={LOGO_SRC} alt="Kappiness" loading="eager" style={{ height: '3.6em', width: 'auto', margin: '0 auto', objectFit: 'contain' }} />

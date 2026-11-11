@@ -183,6 +183,11 @@ body {
 .rcpt.is-a5 {
   width: 36em;
 }
+/* 2 × 6 in bookmark: narrower than the roll receipt so the text stays readable at bookmark width.
+   Must match PRINT_FORMATS.bookmark.emWidth in src/lib/print.js. */
+.rcpt.is-bookmark {
+  width: 22em;
+}
 /* On-screen preview shrinks to fit narrow phones (print sizes are set by print.js). */
 @media (max-width: 420px) {
   .rcpt-preview .rcpt {
@@ -300,5 +305,24 @@ body {
   }
   html[data-print-format='thermal'] .rcpt img {
     filter: grayscale(1) contrast(1.15);
+  }
+  /* Bookmark: the page is exactly 2 × 6 in (set by print.js). The print area is locked to a hair
+     under one page and clips anything beyond it, so the PDF can never get a second page. */
+  html[data-print-format='bookmark'],
+  html[data-print-format='bookmark'] body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 50.8mm;
+    height: 152mm;
+    overflow: hidden !important;
+  }
+  html[data-print-format='bookmark'] .print-root {
+    box-sizing: border-box;
+    width: 50.8mm;
+    height: 152mm;
+    padding: 3mm;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
   }
 }

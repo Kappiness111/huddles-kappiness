@@ -1,30 +1,29 @@
 import { useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, Check, FileDown, Mail, Printer, RefreshCw } from 'lucide-react'
+import { ArrowRight, Check, FileDown, Mail, RefreshCw } from 'lucide-react'
 import TopBar from '../components/layout/TopBar.jsx'
 import Button from '../components/ui/Button.jsx'
 import Receipt from '../components/receipt/Receipt.jsx'
-import { PRINT_FORMATS, printReceipt } from '../lib/print.js'
+import { printReceipt } from '../lib/print.js'
 import { currentPick, useExperience } from '../state/ExperienceContext.jsx'
 import { useI18n } from '../i18n/index.jsx'
 
 export default function ReceiptScreen() {
   const { state, go, sendEmail, setAttendee } = useExperience()
   const { t } = useI18n()
-  const [format, setFormat] = useState('thermal')
+  // The keepsake is the 2 × 6 in bookmark: downloaded as a one-page PDF, or emailed. No printing at the stall.
+  const format = 'bookmark'
   const [hint, setHint] = useState(null)
   const printRef = useRef(null)
 
   const data = useMemo(() => ({ ...state, picks: { book: currentPick(state.recs.book), movie: currentPick(state.recs.movie) } }), [state])
   const first = state.attendee.name.split(' ')[0]
 
-  const doPrint = async (fmt, pdf = false) => {
-    setHint(pdf ? t('receipt.pdfHint') : null)
-    // The print copy must use the layout for the paper being printed (PDF is always A5).
-    if (fmt !== format) setFormat(fmt)
-    await new Promise((r) => setTimeout(r, pdf ? 700 : 80))
-    await printReceipt(fmt, printRef.current)
+  // Browsers create the PDF through their "Save as PDF" dialog; the page is exactly the bookmark.
+  const download = async () => {
+    setHint(t('receipt.pdfHint'))
+    await printReceipt(format, printRef.current)
   }
 
   return (
@@ -36,35 +35,12 @@ export default function ReceiptScreen() {
           <h1 className="display mt-3 text-[clamp(2rem,7.6vw,3.4rem)] text-ink">{t('receipt.ready', { name: first })}</h1>
           <p className="mt-3 max-w-md text-espresso/70">{t('receipt.sub')}</p>
 
-          <fieldset className="mt-8">
-            <legend className="eyebrow text-espresso/55">{t('receipt.paper')}</legend>
-            <div className="mt-2 grid grid-cols-2 border-y hairline">
-              {Object.keys(PRINT_FORMATS).map((id, i) => {
-                const on = format === id
-                return (
-                  <label key={id} className={`flex min-h-16 cursor-pointer flex-col justify-center px-3 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-terracotta ${i ? 'border-l hairline' : ''} ${on ? 'bg-paper' : ''}`}>
-                    <input type="radio" name="format" value={id} checked={on} onChange={() => setFormat(id)} className="sr-only" />
-                    <span className={`font-semibold ${on ? 'text-ink' : 'text-espresso/60'}`}>{t(`receipt.${id}`)}</span>
-                    <span className="text-xs text-espresso/50">{t(`receipt.${id}Detail`)}</span>
-                    {on && <motion.span layoutId="paper-bar" className="mt-1.5 h-0.5 w-8 bg-terracotta" />}
-                  </label>
-                )
-              })}
-            </div>
-          </fieldset>
-
-          <div className="mt-6 flex flex-col gap-3">
-            <Button size="lg" onClick={() => doPrint(format)}>
-              <Printer className="h-5 w-5" aria-hidden="true" />
-              {t('receipt.print')}
+          <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Button size="lg" onClick={download}>
+              <FileDown className="h-5 w-5" aria-hidden="true" />
+              {t('receipt.pdf')}
             </Button>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Button variant="outline" onClick={() => doPrint('a5', true)}>
-                <FileDown className="h-4 w-4" aria-hidden="true" />
-                {t('receipt.pdf')}
-              </Button>
-              <EmailButton state={state} sendEmail={sendEmail} t={t} />
-            </div>
+            <EmailButton state={state} sendEmail={sendEmail} t={t} />
           </div>
 
           <AnimatePresence>
@@ -86,7 +62,7 @@ export default function ReceiptScreen() {
 
         {/* Preview */}
         <div className="flex justify-center lg:order-1">
-          <motion.div key={format} initial={{ opacity: 0, y: -24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }} className="w-full max-w-full overflow-hidden drop-shadow-[0_24px_30px_rgba(51,35,31,.18)]">
+          <motion.div initial={{ opacity: 0, y: -24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }} className="w-full max-w-full overflow-hidden drop-shadow-[0_24px_30px_rgba(51,35,31,.18)]">
             <div className="rcpt-preview flex justify-center">
               <Receipt data={data} variant={format} notchBg="var(--color-cream)" />
             </div>
@@ -108,7 +84,7 @@ function EmailButton({ state, sendEmail, t }) {
   const s = state.emailStatus
   const disabled = s === 'sending' || s === 'sent' || s === 'blocked' || !state.attendee.consentEmail
   return (
-    <Button variant="outline" onClick={sendEmail} disabled={disabled}>
+    <Button variant="outline" size="lg" onClick={sendEmail} disabled={disabled}>
       {s === 'sent' ? <Check className="h-4 w-4" aria-hidden="true" /> : <Mail className="h-4 w-4" aria-hidden="true" />}
       {s === 'sending' ? t('receipt.emailSending') : t('receipt.email')}
     </Button>

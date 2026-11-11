@@ -62,8 +62,24 @@ function affinityScore(affinity, profile) {
   return weight ? sum / weight : 0
 }
 
-export function pickPersonality(profile) {
-  return [...PERSONALITIES].sort((a, b) => affinityScore(b.affinity, profile) - affinityScore(a.affinity, profile))[0]
+// A runner-up identity is only used if it fits at least this well relative to the best match.
+const FAIR_FIT = 0.8
+
+/**
+ * The visitor's story identity: their best affinity match, with variety between visitors.
+ * `avoid` lists identities handed out recently (most recent first). The previous visitor's identity
+ * is never repeated: the next-best match is used instead. Older recent ones are skipped only when a
+ * runner-up still fits well (≥ 80 % of the best score), so nobody gets an identity that isn't theirs.
+ */
+export function pickPersonality(profile, avoid = []) {
+  const ranked = [...PERSONALITIES]
+    .map((p) => ({ p, s: affinityScore(p.affinity, profile) * (p.balance ?? 1) }))
+    .sort((a, b) => b.s - a.s)
+  const best = ranked[0]
+  const [previous, ...older] = avoid
+  const candidates = ranked.filter(({ p }) => p.id !== previous)
+  const fresh = candidates.find(({ p, s }) => !older.includes(p.id) && s >= best.s * FAIR_FIT)
+  return (fresh ?? candidates[0] ?? best).p
 }
 
 export function topGenres(profile, n = 3) {
@@ -152,9 +168,9 @@ export function answersBehind(profile, genre, n = 2) {
   return (profile.drivers[genre] ?? []).slice(0, n)
 }
 
-export function computeResult({ answers, quizSet = 'A', mindLab }) {
+export function computeResult({ answers, quizSet = 'A', mindLab, avoid = [] }) {
   const lab = mindLabQuestions(mindLab?.picks, mindLab?.responses)
   const questions = [...questionsFor(quizSet), ...lab.questions]
   const profile = buildProfile({ ...answers, ...lab.answers }, questions)
-  return { profile, personality: pickPersonality(profile), interests: topGenres(profile, 3) }
+  return { profile, personality: pickPersonality(profile, avoid), interests: topGenres(profile, 3) }
 }

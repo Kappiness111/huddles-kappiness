@@ -47,8 +47,9 @@ function loadShared() {
       const timeout = new Promise((resolve) => setTimeout(() => resolve({ error: { message: 'timeout' } }), SHARED_TIMEOUT_MS))
       const { data, error } = await Promise.race([call, timeout])
       if (error) throw new Error(error.message)
-      const keys = (list) => (Array.isArray(list) ? list.filter((x) => typeof x === 'string').map(titleKey) : [])
-      shared = { at: Date.now(), data: { book: keys(data?.book), movie: keys(data?.movie) } }
+      const strings = (list) => (Array.isArray(list) ? list.filter((x) => typeof x === 'string') : [])
+      const keys = (list) => strings(list).map(titleKey)
+      shared = { at: Date.now(), data: { book: keys(data?.book), movie: keys(data?.movie), identity: strings(data?.identity) } }
       return shared.data
     } catch (e) {
       console.info('[kappiness] shared recent picks unavailable:', e.message)
@@ -60,6 +61,37 @@ function loadShared() {
     }
   })()
   return sharedPromise
+}
+
+// ── Story identities ──
+// So the next visitor never gets the same identity as the last one (see pickPersonality).
+const IDENTITY_KEY = 'kappiness.recentIdentities'
+
+/** Starts the shared lookup early (e.g. when the Mind Lab opens), so it's ready when the quiz ends. */
+export const warmRecent = () => loadShared()
+
+/** Identities handed out recently, most recent first: this device's first, then other phones'. */
+export function recentIdentities() {
+  let local = []
+  try {
+    const v = JSON.parse(localStorage.getItem(IDENTITY_KEY))
+    if (Array.isArray(v)) local = v.filter((x) => typeof x === 'string')
+  } catch {
+    /* storage blocked */
+  }
+  return [...new Set([...local, ...(shared?.data?.identity ?? [])])].slice(0, 6)
+}
+
+/** Call once per visitor with the identity they were given. */
+export function rememberIdentity(id) {
+  if (shared?.data?.identity) shared.data.identity = [id, ...shared.data.identity.filter((x) => x !== id)]
+  try {
+    const v = JSON.parse(localStorage.getItem(IDENTITY_KEY))
+    const list = Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x !== id) : []
+    localStorage.setItem(IDENTITY_KEY, JSON.stringify([id, ...list].slice(0, 6)))
+  } catch {
+    /* storage blocked: the shared list still gives variety */
+  }
 }
 
 /** Call once per visitor with the picks that went on their receipt: { book, movie }. */

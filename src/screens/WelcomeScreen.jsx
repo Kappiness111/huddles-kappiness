@@ -28,7 +28,6 @@ export default function WelcomeScreen() {
           <span className="eyebrow text-espresso/55">{t('welcome.time', { n: ESTIMATED_MINUTES })}</span>
         </motion.div>
 
-        {/* Arch-framed illustration (mobile + tablet) */}
         <motion.div
           initial={{ opacity: 0, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -38,7 +37,7 @@ export default function WelcomeScreen() {
           <Landscape className="h-[30dvh] min-h-48 rounded-t-full [@media(max-height:700px)]:h-[24dvh]" />
           <Cup mood="smile" className="absolute bottom-2 left-[14%] w-12 sm:w-14" />
         </motion.div>
-
+      
         <div className="flex flex-1 flex-col justify-center py-6 lg:py-0">
           <motion.p {...rise(1)} className="eyebrow text-terracotta">
             {t('welcome.kicker')}
@@ -69,7 +68,7 @@ export default function WelcomeScreen() {
         </div>
       </div>
 
-      {/* Full-height illustration (desktop) */}
+     
       <div className="relative hidden p-6 lg:block">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1.2 }} className="relative h-full">
           <Landscape className="h-full rounded-t-[999px] rounded-b-[2rem]" />

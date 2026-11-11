@@ -23,10 +23,10 @@ npm run fetch-media        # download covers/posters for any new curated title
 | 2 | Attendee | Name and email are required, phone is optional. Consent is required for data collection and for email delivery. Includes a privacy notice. |
 | 3 | The Mind Lab | Three personality scenarios, one from each section (*Your Inner World*, *Your Instincts*, *The Decision Room*), drawn from 10 per section (1,000 combinations), answers in a different order for each visitor. Four options each, no right answers, no maths. After each choice: what it says about the visitor and the genres it adds. **Its answers feed the recommendation profile** (`src/data/mindlab.js`). |
 | 4 | This or That | 10 questions, each drawn from 8 parallel versions (80 questions in all), so every visitor gets their own mix (about a billion possible quizzes, scored identically) and the next visitor on a device shares none of the previous visitor's questions, shown as an editorial split with abstract line-art. Each choice pops up the genres it boosted. |
-| 5 | Reveal | One of 7 story identities, from the Mind Lab and This or That together. Marked as a creative identity, not an assessment. |
+| 5 | Reveal | One of **14** story identities (never the same as the previous visitor's), from the Mind Lab and This or That together. Marked as a creative identity, not an assessment. |
 | 6 | Book | No language question: the best matches across English, Malayalam, Hindi, Tamil and Telugu. The cover flips in with the genres it shares with the visitor. Reactions: **Love it**, **I've read it** and **Not for me** (similar books sink). A "More matches" shelf swaps in any of the next four. An optional switch narrows to one language. |
 | 7 | Watch | The same for **films and TV series** (labelled *Series*), with original title and original language. |
-| 8 | Receipt | 80mm thermal, A5, and PDF (via the print dialog). Send to email, with sending, sent, failed + retry, and not-configured states. The receipt's QR code opens instagram.com/Kappi_ness. |
+| 8 | Receipt | A 2 × 6 in bookmark keepsake, **downloaded** as a one-page PDF (via the browser's Save as PDF) or **sent by email**, with sending, sent, failed + retry, and not-configured states. No printing at the stall. The QR code opens instagram.com/Kappi_ness. |
 | 9 | Thanks | "Thank you for exploring with Kappiness." → Start a new experience (auto-resets after 45 seconds). |
 
 Whatever is showing when the visitor moves on is the pick that goes on the receipt, the email and the saved record.
