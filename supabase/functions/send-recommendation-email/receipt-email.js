@@ -1,6 +1,6 @@
 
-// Email-compatible version of the on-screen Story Receipt.
-// Renders only from the stored Supabase submission row.
+ // Email-compatible version of the on-screen Story Receipt.
+ // Renders only from the stored Supabase submission row.
 
 const C = {
   page: '#f5ebdd',
@@ -22,7 +22,10 @@ const IMAGE_HOSTS = [
   'books.googleusercontent.com',
   'covers.openlibrary.org',
   'archive.org',
-  'image.tmdb.org'
+  'image.tmdb.org',
+  'm.media-amazon.com',
+  'images-na.ssl-images-amazon.com',
+  'images.unsplash.com'
 ]
 
 const LINK_HOSTS = [
@@ -40,7 +43,6 @@ const INSTAGRAM_QR_URL =
   encodeURIComponent(INSTAGRAM_URL) +
   '&size=256&margin=2'
 
-// English fallbacks.
 const DEFAULT_COPY = {
   subject: '{name}, your Kappiness story picks',
   preheader: 'Your story identity, a book and a film chosen for you at Huddles.',
@@ -104,19 +106,52 @@ function safeUrl(url, hosts) {
   }
 }
 
-/** Bundled covers are site-relative. */
+/**
+ * Resolve recommendation cover images for email.
+ * Supports public HTTPS image URLs and local website covers.
+ */
 export function imageUrl(cover, siteUrl) {
-  const c = str(cover, 500)
-
+  const c = str(cover, 1000)
   if (!c) return null
 
-  const local = c.match(/\/media\/(books|movies)\/[a-z0-9-]+\.jpg$/)
+  const site = str(siteUrl, 1000).replace(/\/+$/, '')
 
-  if (!/^https?:/i.test(c)) {
-    return local && siteUrl ? `${siteUrl}${local[0]}` : null
+  // Allow local book and movie covers.
+  if (c.startsWith('/') && !c.startsWith('//')) {
+    const local = c.match(
+      /^\/media\/(?:books|movies)\/[a-z0-9_-]+\.(?:jpg|jpeg|png|webp|gif)$/i
+    )
+
+    return local && site ? `${site}${local[0]}` : null
   }
 
-  return safeUrl(c.replace(/^http:/i, 'https:'), IMAGE_HOSTS)
+  // Upgrade HTTP image URLs to HTTPS.
+  const candidate = c.replace(/^http:\/\//i, 'https://')
+
+  try {
+    const url = new URL(candidate)
+
+    if (url.protocol !== 'https:') return null
+    if (!url.hostname || url.username || url.password) return null
+
+    const host = url.hostname.toLowerCase()
+
+    if (
+      host === 'localhost' ||
+      host.endsWith('.localhost') ||
+      host === '127.0.0.1' ||
+      host === '::1' ||
+      /^10\./.test(host) ||
+      /^192\.168\./.test(host) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+    ) {
+      return null
+    }
+
+    return url.href
+  } catch {
+    return null
+  }
 }
 
 const label = (text, extra = '', en = true) =>
@@ -124,7 +159,6 @@ const label = (text, extra = '', en = true) =>
     en ? 'letter-spacing:.2em;text-transform:uppercase;' : ''
   }color:${C.soft};${extra}">${esc(text)}</p>`
 
-/** A dashed divider with half-circle cut-outs. */
 const notch = () => `
 <tr><td style="padding:18px 0">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
@@ -181,12 +215,6 @@ function pick({ heading, item, meta, linkText, copy, siteUrl, en }) {
 </td></tr>`
 }
 
-/**
- * Renders the personalised receipt from the saved submission.
- * @param {object} s Saved submission row.
- * @param {{siteUrl?: string}} opts
- * @returns {{subject: string, html: string, text: string}}
- */
 export function renderReceiptEmail(s, { siteUrl = '' } = {}) {
   const site = siteUrl.replace(/\/+$/, '')
 
