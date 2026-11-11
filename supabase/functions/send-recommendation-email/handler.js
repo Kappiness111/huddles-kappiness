@@ -186,6 +186,10 @@ export function createHandler({
       })
     }
 
+    const book = row.recommended_book || {}
+    const movie = row.recommended_movie || {}
+    const identity = row.story_identity || {}
+
     let sent
 
     try {
@@ -194,6 +198,19 @@ export function createHandler({
         subject: message.subject,
         html: message.html,
         text: message.text,
+
+        // Saved visitor and receipt details for Google Sheets.
+        submissionId: row.id,
+        receiptNo: row.receipt_number,
+        name: row.full_name,
+        phone: row.phone,
+        date: row.completed_at,
+        story: identity.description || '',
+        storyIdentity: identity.title || '',
+        recommendedBook: book.title || '',
+        recommendedMovie: movie.title || '',
+
+        // Prevent duplicate processing of the same attempt.
         idempotencyKey: `kappiness-${row.id}-${row.email_attempts}`,
       })
     } catch (e) {
