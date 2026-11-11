@@ -1,12 +1,3 @@
-// Request handling for send-recommendation-email, with its dependencies injected so it can be
-// tested in Node (scripts/test-email-backend.mjs). index.js wires in Supabase + Resend.
-//
-// Flow: validate input → claim_submission_email() (atomic: verifies id + receipt number + email,
-// consent, age, attempt limits, and that no other send is in flight) → render the stored receipt →
-// send with Resend → finish_submission_email() records sent/failed.
-//
-// The request carries identifiers only. The email is rendered from the saved row, so a retry
-// can never produce different recommendations, and the browser cannot inject email content.
 
 import { renderReceiptEmail } from './receipt-email.js'
 
@@ -15,9 +6,8 @@ const RECEIPT_RE = /^KAP-[0-9]{6}-[2-9A-HJ-NP-Z]{4}$/
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const MAX_BODY = 2048
 
-// claim outcome → [http status, retryable]
 const OUTCOMES = {
-  not_found: [404, true], // e.g. the save had not landed yet: the website re-saves, then retries
+  not_found: [404, true],
   in_progress: [409, true],
   email_mismatch: [403, false],
   no_consent: [403, false],
@@ -31,109 +21,213 @@ export function corsHeaders(origin, allowed) {
     .split(',')
     .map((s) => s.trim().replace(/\/$/, ''))
     .filter(Boolean)
-  const allow = !list.length || list.includes('*') ? '*' : list.includes(origin) ? origin : list[0]
+
+  const allow =
+    !list.length || list.includes('*')
+      ? '*'
+      : list.includes(origin)
+        ? origin
+        : list[0]
+
   return {
     'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers':
+      'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   }
 }
 
-/**
- * @param {object} deps
- * @param {(k: string) => string} deps.env
- * @param {(args: object) => Promise<object>} deps.claim   rpc claim_submission_email
- * @param {(args: object) => Promise<void>} deps.finish    rpc finish_submission_email
- * @param {(msg: object) => Promise<{ok: boolean, id?: string, error?: string}>} deps.sendEmail
- */
-export function createHandler({ env, claim, finish, sendEmail, log = console }) {
+export function createHandler({
+  env,
+  claim,
+  finish,
+  sendEmail,
+  log = console,
+}) {
   return async function handle(req) {
-    const cors = corsHeaders(req.headers.get('origin') ?? '', env('ALLOWED_ORIGIN'))
-    const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+    const cors = corsHeaders(
+      req.headers.get('origin') ?? '',
+      env('ALLOWED_ORIGIN'),
+    )
 
-    if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
-    if (req.method !== 'POST') return json(405, { ok: false, error: 'method_not_allowed', retryable: false })
-    if (!env('RESEND_API_KEY') || !env('RESEND_FROM')) return json(503, { ok: false, error: 'not_configured', retryable: false })
+    const json = (status, body) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: {
+          ...cors,
+          'Content-Type': 'application/json',
+        },
+      })
+
+    if (req.method === 'OPTIONS') {
+      return new Response('ok', { headers: cors })
+    }
+
+    if (req.method !== 'POST') {
+      return json(405, {
+        ok: false,
+        error: 'method_not_allowed',
+        retryable: false,
+      })
+    }
+
+    if (!env('APPS_SCRIPT_URL') || !env('APPS_SCRIPT_SECRET')) {
+      return json(503, {
+        ok: false,
+        error: 'not_configured',
+        retryable: false,
+      })
+    }
 
     let p
+
     try {
       const raw = await req.text()
-      if (raw.length > MAX_BODY) return json(413, { ok: false, error: 'too_large', retryable: false })
+
+      if (raw.length > MAX_BODY) {
+        return json(413, {
+          ok: false,
+          error: 'too_large',
+          retryable: false,
+        })
+      }
+
       p = JSON.parse(raw)
     } catch {
-      return json(400, { ok: false, error: 'invalid_json', retryable: false })
+      return json(400, {
+        ok: false,
+        error: 'invalid_json',
+        retryable: false,
+      })
     }
+
     const submissionId = String(p?.submissionId ?? '')
     const receiptNo = String(p?.receiptNo ?? '')
     const email = String(p?.email ?? '').trim().toLowerCase()
-    if (!UUID_RE.test(submissionId) || !RECEIPT_RE.test(receiptNo)) return json(400, { ok: false, error: 'invalid_submission', retryable: false })
-    if (email.length > 254 || !EMAIL_RE.test(email)) return json(400, { ok: false, error: 'invalid_email', retryable: false })
+
+    if (!UUID_RE.test(submissionId) || !RECEIPT_RE.test(receiptNo)) {
+      return json(400, {
+        ok: false,
+        error: 'invalid_submission',
+        retryable: false,
+      })
+    }
+
+    if (email.length > 254 || !EMAIL_RE.test(email)) {
+      return json(400, {
+        ok: false,
+        error: 'invalid_email',
+        retryable: false,
+      })
+    }
 
     let claimed
+
     try {
-      claimed = await claim({ p_id: submissionId, p_receipt_number: receiptNo, p_email: email, p_grant_consent: p.consentEmail === true })
+      claimed = await claim({
+        p_id: submissionId,
+        p_receipt_number: receiptNo,
+        p_email: email,
+        p_grant_consent: p.consentEmail === true,
+      })
     } catch (e) {
       log.error('[email] claim failed', e?.message ?? e)
-      return json(500, { ok: false, error: 'database_error', retryable: true })
+
+      return json(500, {
+        ok: false,
+        error: 'database_error',
+        retryable: true,
+      })
     }
 
     const outcome = claimed?.outcome
-    if (outcome === 'already_sent') return json(200, { ok: true, status: 'already_sent' })
+
+    if (outcome === 'already_sent') {
+      return json(200, {
+        ok: true,
+        status: 'already_sent',
+      })
+    }
+
     if (outcome !== 'claimed') {
       const [status, retryable] = OUTCOMES[outcome] ?? [500, true]
-      return json(status, { ok: false, error: outcome ?? 'unknown', retryable })
+
+      return json(status, {
+        ok: false,
+        error: outcome ?? 'unknown',
+        retryable,
+      })
     }
 
     const row = claimed.submission
+
     let message
+
     try {
-      message = renderReceiptEmail(row, { siteUrl: env('SITE_URL') })
+      message = renderReceiptEmail(row, {
+        siteUrl: env('SITE_URL'),
+      })
     } catch (e) {
       log.error('[email] render failed', row.id, e?.message ?? e)
-      await finish({ p_id: row.id, p_attempt: row.email_attempts, p_ok: false, p_error: `render: ${e?.message ?? e}` }).catch(() => {})
-      return json(500, { ok: false, error: 'render_failed', retryable: false })
+
+      await finish({
+        p_id: row.id,
+        p_attempt: row.email_attempts,
+        p_ok: false,
+        p_error: `render: ${e?.message ?? e}`,
+      }).catch(() => {})
+
+      return json(500, {
+        ok: false,
+        error: 'render_failed',
+        retryable: false,
+      })
     }
 
     let sent
+
     try {
       sent = await sendEmail({
-        from: env('RESEND_FROM'),
         to: row.email,
-        replyTo: env('RESEND_REPLY_TO') || undefined,
         subject: message.subject,
         html: message.html,
         text: message.text,
-        // Same attempt → same key, so a network-level retry of this call cannot send twice.
         idempotencyKey: `kappiness-${row.id}-${row.email_attempts}`,
       })
     } catch (e) {
-      sent = { ok: false, error: e?.message ?? String(e) }
+      sent = {
+        ok: false,
+        error: e?.message ?? String(e),
+      }
     }
 
     try {
-      await finish({ p_id: row.id, p_attempt: row.email_attempts, p_ok: sent.ok, p_message_id: sent.id ?? null, p_error: sent.ok ? null : sent.error })
+      await finish({
+        p_id: row.id,
+        p_attempt: row.email_attempts,
+        p_ok: sent.ok,
+        p_message_id: sent.id ?? null,
+        p_error: sent.ok ? null : sent.error,
+      })
     } catch (e) {
       log.error('[email] finish failed', row.id, e?.message ?? e)
     }
 
     if (!sent.ok) {
-      log.error('[email] resend failed', row.id, sent.error)
-      return json(502, { ok: false, error: 'send_failed', retryable: true })
-    }
-    return json(200, { ok: true, status: 'sent' })
-  }
-}
+      log.error('[email] Apps Script send failed', row.id, sent.error)
 
-/** Resend REST call (https://resend.com/docs/api-reference/emails/send-email). */
-export async function sendWithResend(apiKey, { from, to, replyTo, subject, html, text, idempotencyKey }, fetchImpl = fetch) {
-  const res = await fetchImpl('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
-    body: JSON.stringify({ from, to: [to], subject, html, text, ...(replyTo ? { reply_to: replyTo } : {}) }),
-  })
-  const body = await res.json().catch(() => ({}))
-  if (!res.ok) return { ok: false, error: `resend ${res.status}: ${String(body?.message ?? body?.name ?? '').slice(0, 300)}` }
-  return { ok: true, id: body?.id }
+      return json(502, {
+        ok: false,
+        error: 'send_failed',
+        retryable: true,
+      })
+    }
+
+    return json(200, {
+      ok: true,
+      status: 'sent',
+    })
+  }
 }
