@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 // `host: true` lets a tablet on the same wifi open the laptop's dev/preview server.
 export default defineConfig({
-  base: '/huddles-kappiness/',
+  base: '/',
   plugins: [react(), tailwindcss()],
   server: { host: true },
   preview: { host: true },
