@@ -75,7 +75,7 @@ affinity match. Every one of the 1,024 possible answer combinations gives one of
 - **Ranking:** genre similarity, a personality bonus, rating and popularity, and a stable per-session tie-break.
   Adult and non-fiction results are filtered out.
 
-## Backend (Supabase + Resend)
+## Backend (Supabase + Gmail API / Google Apps Script)
 
 Everything secret lives in Supabase. The browser only ever holds public values.
 
@@ -95,15 +95,42 @@ The receipt stays on screen (and printable) whatever happens to the email.
      address per day, and never a second email once one has been sent.
    - There is a 90-day retention function, with a `pg_cron` line to schedule it.
 2. **Edge Functions** (`supabase/functions/`, JavaScript, entrypoints in `supabase/config.toml`):
-   - `send-recommendation-email`: takes `{ submissionId, receiptNo, email }` only, renders the email **from the saved
-     row** (`receipt-email.js`, an email-safe copy of the on-screen receipt) and sends it with **Resend**.
-     All text is HTML-escaped, and image and link hosts are whitelisted.
+   - `send-recommendation-email`: takes `{ submissionId, receiptNo, email }` only, claims the row (above), renders the
+     email **from the saved row** (`receipt-email.js`, an email-safe copy of the on-screen receipt) and sends it with
+     the provider chosen by `EMAIL_PROVIDER` (see *Email providers* below). All text is HTML-escaped; `javascript:`
+     links and unsafe image URLs are dropped.
    - `tmdb`: a read-only proxy for the TMDB film and TV endpoints the app uses. It adds the token server-side.
      After changing it, redeploy with `supabase functions deploy tmdb`.
 
+### Email providers
+
+| `EMAIL_PROVIDER` | What sends the email | Sheet row |
+|---|---|---|
+| unset or `apps_script` | The existing Google Apps Script Web App (`APPS_SCRIPT_URL`, `MailApp`): the original behaviour | written by that script |
+| `gmail_api` | The Gmail API (`users.messages.send`, OAuth refresh token) as `GMAIL_SENDER` | written by a **separate** logging-only Apps Script deployment (`APPS_SCRIPT_LOG_URL`); see `supabase/functions/send-recommendation-email/APPS_SCRIPT_LOGGING.md` |
+
+- **Fallback:** with `gmail_api`, if Gmail *definitely* did not accept the message (not configured, OAuth failure,
+  rejected, its sending limit, or our safety cap), the same claimed attempt is sent through Apps Script instead.
+  If Gmail's answer is *ambiguous* (timeout, network error, 5xx), the email may already be on its way, so there is
+  no fallback and the visitor is not offered a retry, which prevents duplicate receipts. Set `EMAIL_FALLBACK=off`
+  to disable the fallback.
+- **Daily safety cap:** `GMAIL_DAILY_CAP` (default 450) limits Gmail API sends in any rolling 24 hours, counted
+  from the database (`email_message_id` starts with `gmail:`), so it holds across function instances. Gmail's own
+  limit (about 500 a day for a personal account) is not guaranteed; a sending-limit error is never retried.
+- **Records:** `email_message_id` is `gmail:<id>` or `apps_script:<key>`; failures are saved in `email_last_error`
+  prefixed with the provider. Gmail sends are only marked sent after Gmail returns a message id.
+- Switching provider is a single secret change; the website doesn't change.
+
+Secrets (set with the Supabase CLI, never in `.env.local` or Git):
+
 ```bash
-cp supabase/functions/.env.example supabase/functions/.env   # fill in; git-ignored
-supabase secrets set --env-file supabase/functions/.env
+# already in production: APPS_SCRIPT_URL, APPS_SCRIPT_SECRET, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET,
+#                        GMAIL_REFRESH_TOKEN, GMAIL_SENDER, SITE_URL, ALLOWED_ORIGIN
+supabase secrets set APPS_SCRIPT_LOG_URL="<new logging-only deployment URL>"
+supabase secrets set GMAIL_SENDER_NAME="Kappiness" EMAIL_REPLY_TO="infokappiness@gmail.com"   # optional
+supabase secrets set GMAIL_DAILY_CAP=450                                                       # optional
+supabase secrets set EMAIL_PROVIDER=gmail_api      # switch to Gmail API
+supabase secrets set EMAIL_PROVIDER=apps_script    # switch back (or: supabase secrets unset EMAIL_PROVIDER)
 supabase functions deploy send-recommendation-email
 supabase functions deploy tmdb
 ```
@@ -112,9 +139,11 @@ supabase functions deploy tmdb
    publishable key), `VITE_EMAIL_ENABLED=true`, `VITE_TMDB_ENABLED=true`, and optionally `VITE_GOOGLE_BOOKS_API_KEY`
    (a public key, restricted by HTTP referrer).
 
-**Tests (no Supabase project needed):** `npm test` runs `test:sql` (the migration on PGlite: RLS, trigger, claim
-logic) and `test:backend` (the real frontend services + supabase-js against a local fake Supabase, routed into the
-real Edge Function handler, and it writes email previews for English, Malayalam and Hindi picks).
+**Tests (no Supabase project, no real email):** `npm test` runs `test:sql` (the migration on PGlite: RLS, trigger,
+claim logic), `test:providers` (Gmail API token refresh, MIME/base64url, error handling, Apps Script, fallback,
+cap, Sheet logging, provider switching, against fake Google/Apps Script endpoints) and `test:backend` (the real
+frontend services + supabase-js against a local fake Supabase, routed into the real handler and provider router,
+and it writes email previews for English, Malayalam and Hindi picks).
 
 With nothing configured the app still works end to end, using live Google Books / Open Library plus the
 shelf. It says honestly that email isn't connected, and it never claims data was saved.

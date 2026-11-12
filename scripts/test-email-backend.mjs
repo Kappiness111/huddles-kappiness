@@ -3,8 +3,9 @@
 // • Loads the REAL frontend modules through Vite (recommendation engine, book/film finders, buildSubmission,
 //   saveSubmission, sendReceiptEmail) and the REAL @supabase/supabase-js client.
 // • Points them at a local fake Supabase: PostgREST inserts go to an in-memory table, and function calls are
-//   routed into the REAL Edge Function handler (supabase/functions/send-recommendation-email/handler.js) with a
-//   fake Resend. The claim logic here is a stand-in; the real SQL is tested by `npm run test:sql`.
+//   routed into the REAL Edge Function handler + provider router (handler.js, delivery.js, gmail.js,
+//   apps-script.js) with a fake Gmail API and a fake Apps Script. The claim logic here is a stand-in;
+//   the real SQL is tested by `npm run test:sql`. Provider details are unit-tested by `npm run test:providers`.
 // • Writes rendered email previews (en / ml / hi) so the design can be checked in a browser.
 //
 // External book/film APIs are blocked, so the finders use the bundled shelf (deterministic).
@@ -16,6 +17,9 @@ import { join } from 'node:path'
 import { createServer as createVite } from 'vite'
 import { createHandler, corsHeaders } from '../supabase/functions/send-recommendation-email/handler.js'
 import { renderReceiptEmail } from '../supabase/functions/send-recommendation-email/receipt-email.js'
+import { createGmailSender } from '../supabase/functions/send-recommendation-email/gmail.js'
+import { createAppsScript } from '../supabase/functions/send-recommendation-email/apps-script.js'
+import { createDelivery, GMAIL_ID_PREFIX } from '../supabase/functions/send-recommendation-email/delivery.js'
 
 let pass = 0
 let fail = 0
@@ -26,12 +30,74 @@ const ok = (cond, msg, extra = '') => {
 
 // ── Fake Supabase ─────────────────────────────────────────────────────────────────
 const table = new Map()
-const resendCalls = []
-let resendFailNext = 0
 
-const fakeEnv = { RESEND_API_KEY: 're_test', RESEND_FROM: 'Kappiness <stories@example.com>', SITE_URL: 'https://kappiness111.github.io/huddles-kappiness' }
+// ── Fake Google (OAuth token + Gmail API) and fake Apps Script ──
+const fakeEnv = {
+  EMAIL_PROVIDER: 'gmail_api',
+  GMAIL_CLIENT_ID: 'test-client',
+  GMAIL_CLIENT_SECRET: 'test-secret',
+  GMAIL_REFRESH_TOKEN: 'test-refresh',
+  GMAIL_SENDER: 'infokappiness@gmail.com',
+  APPS_SCRIPT_URL: 'https://script.example/macros/s/SEND/exec',
+  APPS_SCRIPT_SECRET: 'test-apps-secret',
+  APPS_SCRIPT_LOG_URL: 'https://script.example/macros/s/LOG/exec',
+  SITE_URL: 'https://kappiness111.github.io/huddles-kappiness',
+}
+const env = (k) => fakeEnv[k] ?? ''
+const gmailSent = [] // decoded messages Gmail accepted
+const gmailPlan = [] // scripted responses for the next Gmail sends ('timeout' | status code)
+const appsSent = [] // emails the Apps Script sent
+const sheetLog = [] // logging-only calls
+const asJson = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+const fromB64 = (x, url = false) => Buffer.from(url ? x.replace(/-/g, '+').replace(/_/g, '/') : x, 'base64').toString('utf8')
+function decodeMime(raw) {
+  const msg = fromB64(raw, true)
+  const [head, ...rest] = msg.split('\r\n\r\n')
+  const header = (n) => new RegExp(`^${n}: (.*)$`, 'mi').exec(head.replace(/\r\n /g, ''))?.[1] ?? ''
+  const words = (v) => v.replace(/=\?UTF-8\?B\?([^?]+)\?=/g, (_, b) => fromB64(b))
+  const boundary = /boundary="([^"]+)"/.exec(head)[1]
+  const part = (type) => {
+    const p = rest.join('\r\n\r\n').split(`--${boundary}`).find((x) => x.includes(`Content-Type: ${type}`))
+    return fromB64(p.split('\r\n\r\n')[1].replace(/\s+/g, ''))
+  }
+  return { from: words(header('From')), to: header('To'), subject: words(header('Subject')), html: part('text/html'), text: part('text/plain') }
+}
+const providerFetch = async (url, init) => {
+  if (url === 'https://oauth2.googleapis.com/token') return asJson(200, { access_token: 'test-access', expires_in: 3600 })
+  if (url === 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send') {
+    await new Promise((r) => setTimeout(r, 20))
+    const step = gmailPlan.shift()
+    if (step === 'timeout') return new Promise((_, rej) => init.signal.addEventListener('abort', () => rej(new Error('aborted'))))
+    if (step === 429) return asJson(429, { error: { code: 429, message: 'Too many requests: User-rate limit exceeded (Mail sending)' } })
+    if (step) return asJson(step, { error: { code: step, message: 'simulated' } })
+    gmailSent.push(decodeMime(JSON.parse(init.body).raw))
+    return asJson(200, { id: `gm-${gmailSent.length}` })
+  }
+  if (url === fakeEnv.APPS_SCRIPT_URL) {
+    appsSent.push(JSON.parse(init.body))
+    return asJson(200, { success: true })
+  }
+  if (url === fakeEnv.APPS_SCRIPT_LOG_URL) {
+    sheetLog.push(JSON.parse(init.body))
+    return asJson(200, { success: true })
+  }
+  throw new Error(`unexpected provider url ${url}`)
+}
+const fast = { sleep: async () => {}, sendTimeoutMs: 200 }
+// A fresh router (its Gmail pause after a sending-limit error is per instance, like a function instance).
+const newDelivery = () =>
+  createDelivery({
+    env,
+    gmail: createGmailSender({ env, fetch: providerFetch, ...fast }),
+    appsScript: createAppsScript({ env, fetch: providerFetch }),
+    // Same rule as index.js: Gmail sends recorded as sent (the database is the persistent counter).
+    gmailSentLast24h: async () => [...table.values()].filter((r) => r.email_status === 'sent' && String(r.email_message_id).startsWith(GMAIL_ID_PREFIX)).length,
+    log: { error: () => {} },
+  })
+let delivery = newDelivery()
+
 const handler = createHandler({
-  env: (k) => fakeEnv[k] ?? '',
+  env,
   log: { error: () => {} },
   claim: async ({ p_id, p_receipt_number, p_email, p_grant_consent }) => {
     const r = table.get(p_id)
@@ -44,19 +110,14 @@ const handler = createHandler({
     Object.assign(r, { email_status: 'sending', email_attempts: r.email_attempts + 1, consent_email: true })
     return { outcome: 'claimed', submission: structuredClone(r) }
   },
-  finish: async ({ p_id, p_attempt, p_ok, p_message_id }) => {
+  finish: async ({ p_id, p_attempt, p_ok, p_message_id, p_error }) => {
     const r = table.get(p_id)
-    if (r.email_status === 'sending' && r.email_attempts === p_attempt) Object.assign(r, { email_status: p_ok ? 'sent' : 'failed', email_message_id: p_message_id })
+    if (r.email_status === 'sending' && r.email_attempts === p_attempt)
+      Object.assign(r, { email_status: p_ok ? 'sent' : 'failed', email_message_id: p_ok ? p_message_id : r.email_message_id, email_last_error: p_ok ? null : p_error })
   },
-  sendEmail: async (msg) => {
-    resendCalls.push(msg)
-    await new Promise((res) => setTimeout(res, 30))
-    if (resendFailNext > 0) {
-      resendFailNext--
-      return { ok: false, error: 'resend 500: simulated outage' }
-    }
-    return { ok: true, id: `re_${resendCalls.length}` }
-  },
+  sendEmail: (msg) => delivery.send(msg),
+  afterSend: (msg, sent) => delivery.afterSend(msg, sent),
+  configured: () => delivery.configured(),
 })
 
 const server = http.createServer(async (req, res) => {
@@ -158,35 +219,80 @@ try {
   const clash = buildSubmission({ ...(await makeState()), receiptNo: rec.receipt_number })
   ok((await saveSubmission(clash)).status === 'receipt-taken', 'receipt-number collision with another visitor is detected')
 
-  // ── 4. Email: fail → retry → sent → no duplicate ──
+  // ── 4. Email via the Gmail API: fail → retry → sent → no duplicate ──
   const req = { submissionId: rec.id, receiptNo: rec.receipt_number, email: 'Asha.Menon@example.com', consentEmail: true }
-  resendFailNext = 1
+  fakeEnv.EMAIL_FALLBACK = 'off'
+  gmailPlan.push(503, 503, 503)
   let r = await sendReceiptEmail(req)
-  ok(r.status === 'error', `Resend outage → status "error" (retry offered) [${r.message}]`)
-  ok(table.get(rec.id).email_status === 'failed', 'failed attempt recorded')
+  ok(r.status === 'error', `Gmail unavailable (503 ×3, no fallback) → status "error", retry offered [${r.message}]`)
+  ok(table.get(rec.id).email_status === 'failed' && /gmail_api: http 503/.test(table.get(rec.id).email_last_error), 'failed attempt recorded with provider + error status')
+  delete fakeEnv.EMAIL_FALLBACK
   r = await sendReceiptEmail(req)
-  ok(r.status === 'sent', 'retry → sent')
-  ok(resendCalls.length === 2 && resendCalls[0].idempotencyKey !== resendCalls[1].idempotencyKey, 'each attempt has its own Resend idempotency key')
-  ok(resendCalls[1].html === resendCalls[0].html, 'retry email is identical to the first attempt (rendered from the saved row)')
+  ok(r.status === 'sent' && gmailSent.length === 1 && appsSent.length === 0, 'retry → sent via the Gmail API (Apps Script not used)')
+  ok(table.get(rec.id).email_status === 'sent' && table.get(rec.id).email_message_id === 'gmail:gm-1', 'recorded as sent with the Gmail message id (gmail:…)')
+  ok(sheetLog.length === 1 && sheetLog[0].action === 'log' && sheetLog[0].receiptNo === rec.receipt_number && sheetLog[0].recommendedBook === b.title && sheetLog[0].storyIdentity === rec.story_identity.title, 'Google Sheet row logged via the logging-only deployment (receipt, identity, picks)')
+  ok(gmailSent[0].html === renderReceiptEmail(table.get(rec.id), { siteUrl: fakeEnv.SITE_URL }).html, 'email is rendered from the saved row (identical on every attempt)')
   r = await sendReceiptEmail(req)
-  ok(r.status === 'sent' && resendCalls.length === 2, 'asking again after success sends nothing new')
+  ok(r.status === 'sent' && gmailSent.length === 1 && sheetLog.length === 1, 'asking again after success sends nothing new')
   r = await sendReceiptEmail({ ...req, email: 'someone.else@example.com' })
   ok(r.status === 'blocked', 'different email address → blocked (not retryable)')
   r = await sendReceiptEmail({ ...req, submissionId: newId() })
   ok(r.status === 'error', 'unknown submission → error (website re-saves before retrying)')
 
   // concurrent requests (double tap / auto-send + tap)
-  const state2 = await makeState({ email: 'ravi@example.com' })
-  const rec2 = buildSubmission(state2)
-  await saveSubmission(rec2)
-  const before = resendCalls.length
-  const req2 = { submissionId: rec2.id, receiptNo: rec2.receipt_number, email: 'ravi@example.com', consentEmail: true }
-  const both = await Promise.all([sendReceiptEmail(req2), sendReceiptEmail(req2)])
-  ok(resendCalls.length - before === 1 && both.some((x) => x.status === 'sent'), `two simultaneous requests → exactly one email (${both.map((x) => x.status).join(', ')})`)
+  const fresh = async (email) => {
+    const st = await makeState({ email })
+    const row = buildSubmission(st)
+    await saveSubmission(row)
+    return { row, req: { submissionId: row.id, receiptNo: row.receipt_number, email, consentEmail: true } }
+  }
+  const two = await fresh('ravi@example.com')
+  const before = gmailSent.length
+  const both = await Promise.all([sendReceiptEmail(two.req), sendReceiptEmail(two.req)])
+  ok(gmailSent.length - before === 1 && both.some((x) => x.status === 'sent'), `two simultaneous requests → exactly one email (${both.map((x) => x.status).join(', ')})`)
 
-  // ── 5. What was emailed ──
-  const sent = resendCalls[1]
-  ok(sent.to === 'asha.menon@example.com' && sent.from === fakeEnv.RESEND_FROM, 'sent to the saved address, from RESEND_FROM')
+  // ambiguous: Gmail may have accepted it → never fall back, never offer a retry
+  const amb = await fresh('meera@example.com')
+  gmailPlan.push('timeout')
+  const appsBefore = appsSent.length
+  r = await sendReceiptEmail(amb.req)
+  ok(r.status === 'blocked' && appsSent.length === appsBefore, 'Gmail timeout → not retryable and NO Apps Script fallback (no duplicate receipt)')
+  ok(table.get(amb.row.id).email_status === 'failed' && /timeout/.test(table.get(amb.row.id).email_last_error), 'ambiguous result is never marked as sent')
+
+  // persistent safety cap: counted from the database
+  fakeEnv.GMAIL_DAILY_CAP = String([...table.values()].filter((x) => String(x.email_message_id).startsWith('gmail:')).length)
+  const capped = await fresh('nikhil@example.com')
+  const gBefore = gmailSent.length
+  r = await sendReceiptEmail(capped.req)
+  ok(r.status === 'sent' && gmailSent.length === gBefore && appsSent.length === appsBefore + 1, `daily safety cap reached (${fakeEnv.GMAIL_DAILY_CAP} in 24h) → Gmail skipped, sent by the Apps Script fallback`)
+  ok(table.get(capped.row.id).email_message_id.startsWith('apps_script:') && sheetLog.length === gmailSent.length, 'fallback send recorded as apps_script:…; Sheet logged once per Gmail send, never for Apps Script sends (the script logs its own row)')
+  fakeEnv.EMAIL_FALLBACK = 'off'
+  const capped2 = await fresh('tara@example.com')
+  r = await sendReceiptEmail(capped2.req)
+  ok(r.status === 'blocked' && gmailSent.length === gBefore, 'cap reached with fallback off → "daily limit", not retryable, Gmail not called')
+  delete fakeEnv.GMAIL_DAILY_CAP
+  delete fakeEnv.EMAIL_FALLBACK
+
+  // Gmail's own sending limit → Apps Script fallback
+  const quota = await fresh('arjun@example.com')
+  gmailPlan.push(429)
+  r = await sendReceiptEmail(quota.req)
+  ok(r.status === 'sent' && appsSent.length === appsBefore + 2 && appsSent.at(-1).receiptNo === quota.row.receipt_number, 'Gmail sending limit (429) → sent once by the Apps Script fallback')
+
+  // provider switch: EMAIL_PROVIDER=apps_script → the original path, no frontend change
+  delivery = newDelivery()
+  fakeEnv.EMAIL_PROVIDER = 'apps_script'
+  const sw = await fresh('lekha@example.com')
+  const gb = gmailSent.length
+  r = await sendReceiptEmail(sw.req)
+  ok(r.status === 'sent' && gmailSent.length === gb && appsSent.at(-1).to === 'lekha@example.com', 'EMAIL_PROVIDER=apps_script → original Apps Script provider sends it')
+  ok(appsSent.at(-1).idempotencyKey === `kappiness-${sw.row.id}-1` && appsSent.at(-1).token === fakeEnv.APPS_SCRIPT_SECRET, 'Apps Script request unchanged (token + idempotency key)')
+  fakeEnv.EMAIL_PROVIDER = 'gmail_api'
+
+  // ── 5. What was emailed (Gmail API message) ──
+  const sent = gmailSent[0]
+  ok(sent.to === '<asha.menon@example.com>' && sent.from === 'Kappiness <infokappiness@gmail.com>', 'sent to the saved address, from "Kappiness <infokappiness@gmail.com>"')
+  ok(sent.subject === renderReceiptEmail(table.get(rec.id), { siteUrl: fakeEnv.SITE_URL }).subject, 'subject is the existing receipt subject')
   for (const needle of ['Asha', rec.receipt_number, rec.story_identity.title, b.title, b.author, m.title, 'Kappiness · Huddles', 'HUDDLES GLOBAL × KAPPINESS']) {
     ok(sent.html.includes(needle.replace(/&/g, '&amp;').replace(/'/g, '&#39;')), `email contains "${needle}"`)
   }
@@ -203,9 +309,12 @@ try {
   ok((await call({ body: 'x'.repeat(5000) })).status === 413, 'oversized body → 413')
   ok(corsHeaders('https://evil.example', 'https://kappiness111.github.io')['Access-Control-Allow-Origin'] === 'https://kappiness111.github.io', 'ALLOWED_ORIGIN restricts CORS')
   const noKey = createHandler({ env: () => '', claim: null, finish: null, sendEmail: null })
-  ok((await noKey(new Request('http://x', { method: 'POST', body: '{}' }))).status === 503, 'missing Resend secrets → 503 not_configured')
+  ok((await noKey(new Request('http://x', { method: 'POST', body: '{}' }))).status === 503, 'no provider configured → 503 not_configured')
   const xss = renderReceiptEmail({ ...table.get(rec.id), full_name: '<script>alert(1)</script>', recommended_book: { ...b, cover: 'https://evil.example/x.jpg', link: 'javascript:alert(1)' } }, { siteUrl: fakeEnv.SITE_URL })
-  ok(!xss.html.includes('<script>') && !xss.html.includes('evil.example') && !xss.html.includes('javascript:'), 'HTML escaped; unknown image/link hosts dropped')
+  ok(!xss.html.includes('<script>') && !xss.html.includes('javascript:'), 'HTML escaped; javascript: links dropped')
+  // Since "Enhance image URL resolution for email receipts", any public https image is allowed; unsafe forms are still dropped.
+  const { imageUrl } = await import('../supabase/functions/send-recommendation-email/receipt-email.js')
+  ok(['javascript:alert(1)', 'data:image/png;base64,AAA', 'https://u:p@x.example/a.jpg', '//evil.example/a.jpg'].every((c) => imageUrl(c, fakeEnv.SITE_URL) === null), 'unsafe image URLs (javascript:, data:, credentials, protocol-relative) dropped')
 
   // ── 7. Previews for a few recommendation languages (the interface itself is English-only) ──
   const outDir = join(tmpdir(), 'kappiness-email-preview')

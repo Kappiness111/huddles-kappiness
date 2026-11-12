@@ -39,11 +39,20 @@ export function corsHeaders(origin, allowed) {
   }
 }
 
+/**
+ * `sendEmail(msg)` delivers one claimed receipt (see delivery.js) and resolves to
+ *   { ok: true, id, provider } or { ok: false, error, retryable?, quota?, ambiguous? }.
+ * `afterSend(msg, sent)` runs after a confirmed send has been recorded (Google Sheet logging);
+ * its failure never changes the recorded result and never causes a resend.
+ * `configured()` says whether any provider is set up (default: the original Apps Script check).
+ */
 export function createHandler({
   env,
   claim,
   finish,
   sendEmail,
+  afterSend = null,
+  configured = () => Boolean(env('APPS_SCRIPT_URL') && env('APPS_SCRIPT_SECRET')),
   log = console,
 }) {
   return async function handle(req) {
@@ -73,7 +82,7 @@ export function createHandler({
       })
     }
 
-    if (!env('APPS_SCRIPT_URL') || !env('APPS_SCRIPT_SECRET')) {
+    if (!configured()) {
       return json(503, {
         ok: false,
         error: 'not_configured',
@@ -192,27 +201,29 @@ export function createHandler({
 
     let sent
 
+    const sendArgs = {
+      to: row.email,
+      subject: message.subject,
+      html: message.html,
+      text: message.text,
+
+      // Saved visitor and receipt details for Google Sheets.
+      submissionId: row.id,
+      receiptNo: row.receipt_number,
+      name: row.full_name,
+      phone: row.phone,
+      date: row.completed_at,
+      story: identity.description || '',
+      storyIdentity: identity.title || '',
+      recommendedBook: book.title || '',
+      recommendedMovie: movie.title || '',
+
+      // Prevent duplicate processing of the same attempt.
+      idempotencyKey: `kappiness-${row.id}-${row.email_attempts}`,
+    }
+
     try {
-      sent = await sendEmail({
-        to: row.email,
-        subject: message.subject,
-        html: message.html,
-        text: message.text,
-
-        // Saved visitor and receipt details for Google Sheets.
-        submissionId: row.id,
-        receiptNo: row.receipt_number,
-        name: row.full_name,
-        phone: row.phone,
-        date: row.completed_at,
-        story: identity.description || '',
-        storyIdentity: identity.title || '',
-        recommendedBook: book.title || '',
-        recommendedMovie: movie.title || '',
-
-        // Prevent duplicate processing of the same attempt.
-        idempotencyKey: `kappiness-${row.id}-${row.email_attempts}`,
-      })
+      sent = await sendEmail(sendArgs)
     } catch (e) {
       sent = {
         ok: false,
@@ -226,25 +237,43 @@ export function createHandler({
         p_attempt: row.email_attempts,
         p_ok: sent.ok,
         p_message_id: sent.id ?? null,
-        p_error: sent.ok ? null : sent.error,
+        p_error: sent.ok ? null : String(sent.error ?? 'unknown error').slice(0, 500),
       })
     } catch (e) {
       log.error('[email] finish failed', row.id, e?.message ?? e)
     }
 
     if (!sent.ok) {
-      log.error('[email] Apps Script send failed', row.id, sent.error)
+      log.error('[email] send failed', row.id, sent.provider ?? '', sent.error)
+
+      // Daily limit: retrying won't help today. Ambiguous: the email may already be on its way,
+      // so the website must not offer a retry that could send it twice.
+      if (sent.quota) return json(429, { ok: false, error: 'daily_limit', retryable: false })
+      if (sent.ambiguous) return json(502, { ok: false, error: 'delivery_unknown', retryable: false })
 
       return json(502, {
         ok: false,
         error: 'send_failed',
-        retryable: true,
+        retryable: sent.retryable !== false,
       })
+    }
+
+    if (sent.fallback) log.error('[email] sent via fallback', row.id, sent.provider, sent.note)
+
+    // Sheet logging for providers that don't log themselves. Already recorded as sent above,
+    // so a logging failure is only reported; it can never trigger another email.
+    if (afterSend) {
+      try {
+        await afterSend(sendArgs, sent)
+      } catch (e) {
+        log.error('[email] after-send logging failed', row.id, e?.message ?? e)
+      }
     }
 
     return json(200, {
       ok: true,
       status: 'sent',
+      provider: sent.provider ?? null,
     })
   }
 }
